@@ -1,0 +1,53 @@
+.root-pane {
+    -fx-font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+    -fx-background-color: #f4f5f7;
+}
+
+.toolbar {
+    -fx-background-color: #ffffff;
+    -fx-border-color: transparent transparent #e2e4e9 transparent;
+    -fx-border-width: 0 0 1 0;
+}
+
+.controls {
+    -fx-background-color: #ffffff;
+    -fx-border-color: #e2e4e9 transparent transparent transparent;
+    -fx-border-width: 1 0 0 0;
+}
+
+.image-area {
+    -fx-background-color: #2b2d31;
+}
+
+.button {
+    -fx-background-color: #ffffff;
+    -fx-border-color: #d7dae0;
+    -fx-border-width: 1;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-padding: 6 14 6 14;
+    -fx-text-fill: #1f2328;
+    -fx-font-size: 12px;
+    -fx-cursor: hand;
+}
+
+.button:hover {
+    -fx-background-color: #f0f1f3;
+}
+
+.button:pressed, .button:armed {
+    -fx-background-color: #e4e6ea;
+}
+
+.combo-box {
+    -fx-background-color: #ffffff;
+    -fx-border-color: #d7dae0;
+    -fx-border-width: 1;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+}
+
+.label {
+    -fx-text-fill: #1f2328;
+    -fx-font-size: 12px;
+}

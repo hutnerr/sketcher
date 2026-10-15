@@ -1,133 +1,152 @@
-import javax.swing.*;
-import java.awt.FlowLayout;
+import javafx.animation.Animation;
+import javafx.animation.KeyFrame;
+import javafx.animation.Timeline;
+import javafx.application.Application;
+import javafx.geometry.Insets;
+import javafx.scene.Scene;
+import javafx.scene.control.Button;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.Label;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.StackPane;
+import javafx.stage.DirectoryChooser;
+import javafx.stage.Stage;
+import javafx.util.Duration;
+
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
-import java.awt.image.BufferedImage;
 
-public class App {
+public class App extends Application {
 
-    JFrame appFrame;
-    JMenuBar menuBar;
-    ImagePanel imagePanel;
-    JButton startButton;
+    Stage appFrame;
+    ImageView imageView;
+    Button startButton;
 
     String currentDirectory = null;
-    Timer timer;
-    JLabel timerLabel;
+    Timeline timer;
+    Label timerLabel;
     int intervalSeconds = 5;
     int remainingSeconds = intervalSeconds;
 
-    List<BufferedImage> seenImages = new ArrayList<>();
+    List<Image> seenImages = new ArrayList<>();
     int currentImageIndex = -1;
 
     /**
      * Initializes the application and makes it visible.
      */
-    public void run() {
-        initFrame();
-        initMenuBar();
-        initActionBar();
-        initPicturePanel();
-        appFrame.setVisible(true);
+    @Override
+    public void start(Stage stage) {
+        appFrame = stage;
+        appFrame.setTitle("Sketcher");
+
+        BorderPane root = new BorderPane();
+        root.getStyleClass().add("root-pane");
+        root.setTop(initToolbar());
+        root.setCenter(initImageArea());
+        root.setBottom(initControls());
+
+        Scene scene = new Scene(root, 480, 360);
+        scene.getStylesheets().add(getClass().getResource("/style.css").toExternalForm());
+
+        appFrame.setScene(scene);
+        appFrame.show();
     }
 
     /**
-     * Initializes the application frame.
+     * Initializes the toolbar.
      */
-    private void initFrame() {
-        appFrame = new JFrame("Sketcher");
-        appFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        appFrame.setSize(400, 300);
-    }
+    private HBox initToolbar() {
+        HBox toolbar = new HBox(8);
+        toolbar.getStyleClass().add("toolbar");
+        toolbar.setPadding(new Insets(8));
 
-    /**
-     * Initializes the application menu bar.
-     */
-    private void initMenuBar() {
-        menuBar = new JMenuBar();
-        menuBar.setLayout(new FlowLayout(FlowLayout.LEFT, 0, 0));
-        appFrame.setJMenuBar(menuBar);
-
-        // JMenu fileMenu = new JMenu("File");
-        // menuBar.add(fileMenu);
-
-        JMenuItem openItem = new JMenuItem("Open");
-        openItem.addActionListener(e -> {
-            JFileChooser fileChooser = new JFileChooser();
-            fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-            if (currentDirectory != null) fileChooser.setCurrentDirectory(new File(currentDirectory));
-            int returnValue = fileChooser.showOpenDialog(appFrame);
-            if (returnValue == JFileChooser.APPROVE_OPTION) {
-                currentDirectory = fileChooser.getSelectedFile().getPath();
+        Button openButton = new Button("Open");
+        openButton.setOnAction(e -> {
+            DirectoryChooser chooser = new DirectoryChooser();
+            if (currentDirectory != null) chooser.setInitialDirectory(new File(currentDirectory));
+            File selected = chooser.showDialog(appFrame);
+            if (selected != null) {
+                currentDirectory = selected.getPath();
                 seenImages.clear();
                 currentImageIndex = -1;
-                imagePanel.setImage(getNextImage());
+                imageView.setImage(getNextImage());
                 resetTimer();
-                timer.start();
+                timer.play();
             }
         });
-        menuBar.add(openItem);
 
-        JMenuItem helpMenu = new JMenuItem("Help");
-        menuBar.add(helpMenu);
+        Button helpButton = new Button("Help");
+
+        toolbar.getChildren().addAll(openButton, helpButton);
+        return toolbar;
     }
 
-    private void initActionBar() {
-        timerLabel = new JLabel(remainingSeconds + "s");
+    /**
+     * Initializes the image display area.
+     */
+    private StackPane initImageArea() {
+        imageView = new ImageView();
+        imageView.setPreserveRatio(true);
+        imageView.setSmooth(true);
 
-        timer = new Timer(1000, e -> {
+        StackPane imageArea = new StackPane(imageView);
+        imageArea.getStyleClass().add("image-area");
+        imageView.fitWidthProperty().bind(imageArea.widthProperty());
+        imageView.fitHeightProperty().bind(imageArea.heightProperty());
+        return imageArea;
+    }
+
+    /**
+     * Initializes the bottom control bar.
+     */
+    private HBox initControls() {
+        timerLabel = new Label(remainingSeconds + "s");
+
+        timer = new Timeline(new KeyFrame(Duration.seconds(1), e -> {
             remainingSeconds--;
             if (remainingSeconds <= 0) {
-                imagePanel.setImage(getNextImage());
+                imageView.setImage(getNextImage());
                 resetTimer();
             } else timerLabel.setText(remainingSeconds + "s");
-        });
-        timer.setRepeats(true);
+        }));
+        timer.setCycleCount(Timeline.INDEFINITE);
 
-        JButton startButton = new JButton("Start/Stop");
-        startButton.addActionListener(e -> {
-            if (timer.isRunning()) timer.stop();
-            else timer.start();
+        startButton = new Button("Start/Stop");
+        startButton.setOnAction(e -> {
+            if (timer.getStatus() == Animation.Status.RUNNING) timer.pause();
+            else timer.play();
         });
 
-        JButton prevButton = new JButton("Previous");
-        prevButton.addActionListener(e -> {
-            imagePanel.setImage(getPreviousImage());
+        Button prevButton = new Button("Previous");
+        prevButton.setOnAction(e -> {
+            imageView.setImage(getPreviousImage());
             resetTimer();
         });
 
-        JButton nextButton = new JButton("Next");
-        nextButton.addActionListener(e -> {
-            imagePanel.setImage(getNextImage());
+        Button nextButton = new Button("Next");
+        nextButton.setOnAction(e -> {
+            imageView.setImage(getNextImage());
             resetTimer();
         });
 
         // 10s, 30s, 1m, 2m, 5m, 10m
-        Integer[] intervals = { 10, 30, 60, 120, 300, 600 };
-        JComboBox<Integer> intervalDropdown = new JComboBox<>(intervals);
-        intervalDropdown.setSelectedItem(intervalSeconds);
-        intervalDropdown.addActionListener(e -> {
-            intervalSeconds = (Integer) intervalDropdown.getSelectedItem();
+        ComboBox<Integer> intervalDropdown = new ComboBox<>();
+        intervalDropdown.getItems().addAll(10, 30, 60, 120, 300, 600);
+        intervalDropdown.setValue(intervalSeconds);
+        intervalDropdown.setOnAction(e -> {
+            intervalSeconds = intervalDropdown.getValue();
             resetTimer();
         });
 
-        JPanel actionPanel = new JPanel();
-        actionPanel.setLayout(new FlowLayout(FlowLayout.CENTER, 10, 10));
-        actionPanel.add(prevButton);
-        actionPanel.add(startButton);
-        actionPanel.add(nextButton);
-        actionPanel.add(timerLabel);
-        actionPanel.add(intervalDropdown);
-        appFrame.add(actionPanel, java.awt.BorderLayout.SOUTH);
-    }
-
-    /**
-     * Initializes the picture panel.
-     */
-    private void initPicturePanel() {
-        imagePanel = new ImagePanel();
-        appFrame.add(imagePanel, java.awt.BorderLayout.CENTER);
+        HBox controls = new HBox(10, prevButton, startButton, nextButton, timerLabel, intervalDropdown);
+        controls.getStyleClass().add("controls");
+        controls.setPadding(new Insets(10));
+        controls.setAlignment(javafx.geometry.Pos.CENTER);
+        return controls;
     }
 
     /**
@@ -143,7 +162,7 @@ public class App {
      *
      * @return The next image, or null if there are no more images.
      */
-    public BufferedImage getNextImage() {
+    public Image getNextImage() {
         if (currentDirectory == null) return null;
 
         // if we arent at the end of seen images, return next in sequence
@@ -153,7 +172,7 @@ public class App {
         }
 
         // if we are at the end of seen images, load a new image
-        BufferedImage nextImage = ImageLoader.getNextImage(currentDirectory);
+        Image nextImage = ImageLoader.getNextImage(currentDirectory);
         if (nextImage == null) return null;
 
         seenImages.add(nextImage);
@@ -166,7 +185,7 @@ public class App {
      *
      * @return The previous image, or null if there are no previous images.
      */
-    public BufferedImage getPreviousImage() {
+    public Image getPreviousImage() {
         if (seenImages.isEmpty()) return null;
         if (currentImageIndex > 0) currentImageIndex--;
         return seenImages.get(currentImageIndex);

@@ -1,18 +1,16 @@
-import java.awt.image.BufferedImage;
+import javafx.scene.image.Image;
 import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import javax.imageio.ImageIO;
 
 public class ImageLoader {
     private static String loadedDirectory;
     private static List<File> files;
     private static int index;
 
-    public static BufferedImage getNextImage(String directory) {
+    public static Image getNextImage(String directory) {
         if (!directory.equals(loadedDirectory)) {
             loadedDirectory = directory;
             files = new ArrayList<>(Arrays.asList(new File(directory).listFiles((dir, name) -> {
@@ -25,7 +23,7 @@ public class ImageLoader {
 
         if (index >= files.size()) return null;
 
-        try { return ImageIO.read(files.get(index++)); }
-        catch (IOException e) { return null; }
+        Image image = new Image(files.get(index++).toURI().toString());
+        return image.isError() ? null : image;
     }
 }
