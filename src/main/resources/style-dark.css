@@ -1,0 +1,55 @@
+/*
+ * Dark theme: redefines the token palette from style.css on .root. Because
+ * every component rule in style.css reads these tokens (looked-up colors)
+ * instead of hardcoded hex, repainting the tokens here repaints the whole
+ * app — this file only needs to touch the few spots that can't be a token
+ * (image rendering tweaks, selection text on dark rows).
+ */
+
+.root {
+    -bg-app:             #15171b;
+    -bg-surface:         #1c1f24;
+    -bg-surface-alt:      #22262c;
+    -bg-surface-hover:    #292d34;
+    -border-subtle:       #2b2f36;
+    -border-strong:       #3a3f47;
+    -text-primary:        #e9eaed;
+    -text-secondary:      #a0a5ad;
+    -text-tertiary:       #747982;
+    -accent:              #17c7c1;
+    -accent-hover:        #39d4cf;
+    -accent-pressed:      #0fa6a1;
+    -accent-soft:         #163537;
+    -accent-soft-border:  #1f4d4f;
+    -accent-contrast:     #0d1414;
+    -danger:              #f0636f;
+    -danger-hover:        #f58790;
+    -danger-soft:         #2e1a1e;
+    -danger-soft-border:  #4a2429;
+    -warning:             #f0b94e;
+    -nav-bg:              #101216;
+    -nav-text:            #8b919b;
+    -nav-text-selected:   #ffffff;
+    -nav-hover-bg:        rgba(255,255,255,0.06);
+    -image-area-bg:       #0d0f12;
+    -shadow-soft:         rgba(0,0,0,0.35);
+    -shadow-strong:       rgba(0,0,0,0.55);
+}
+
+.table-row-cell:filled:selected .text {
+    -fx-fill: -accent;
+}
+
+.tag-chip .label, .tag-chip-remove {
+    -fx-text-fill: -accent;
+}
+
+.combo-box-popup .list-view .list-cell:filled:hover,
+.combo-box-popup .list-view .list-cell:filled:selected,
+.list-view .list-cell:filled:selected, .tree-view .tree-cell:filled:selected {
+    -fx-text-fill: -accent;
+}
+
+.menu-item:focused .label, .menu-item:hover .label {
+    -fx-text-fill: -accent;
+}
