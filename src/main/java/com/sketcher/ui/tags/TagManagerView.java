@@ -2,7 +2,6 @@ package com.sketcher.ui.tags;
 
 import com.sketcher.db.dao.TagDao;
 import com.sketcher.library.LibraryService;
-import com.sketcher.library.StarterTagSets;
 import com.sketcher.model.Tag;
 import com.sketcher.ui.common.Dialogs;
 import com.sketcher.ui.common.Refreshable;
@@ -27,7 +26,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-/** Tag CRUD, hierarchy management (drag to reparent), merge, and starter tag sets (PLAN.md 4.3). */
+/** Tag CRUD, hierarchy management (drag to reparent), and merge (PLAN.md 4.3). */
 public class TagManagerView extends BorderPane implements Refreshable {
     private final LibraryService library;
     private final TreeView<Tag> treeView = new TreeView<>();
@@ -38,9 +37,7 @@ public class TagManagerView extends BorderPane implements Refreshable {
 
         Button newRootButton = new Button("New root tag");
         newRootButton.setOnAction(e -> createChild(null));
-        Button starterSetButton = new Button("Import starter tag set…");
-        starterSetButton.setOnAction(e -> importStarterSet());
-        HBox toolbar = new HBox(10, newRootButton, starterSetButton);
+        HBox toolbar = new HBox(10, newRootButton);
         toolbar.setPadding(new Insets(14));
 
         Label hint = new Label("Drag a tag onto another to re-parent it. Right-click for more actions.");
@@ -136,20 +133,6 @@ public class TagManagerView extends BorderPane implements Refreshable {
         target.ifPresent(t -> {
             library.tags().merge(source.id(), t.id());
             refresh();
-        });
-    }
-
-    private void importStarterSet() {
-        List<String> keys = List.copyOf(StarterTagSets.AVAILABLE.keySet());
-        ChoiceDialog<String> dialog = new ChoiceDialog<>(keys.get(0), keys);
-        dialog.setTitle("Import starter tag set");
-        dialog.setHeaderText(null);
-        dialog.setContentText("Choose a tag set:");
-        com.sketcher.ui.common.Theme.style(dialog.getDialogPane());
-        dialog.showAndWait().ifPresent(key -> {
-            int created = StarterTagSets.apply(key, library.tags());
-            refresh();
-            Dialogs.info("Starter tag set imported", created + " new tag(s) added.");
         });
     }
 

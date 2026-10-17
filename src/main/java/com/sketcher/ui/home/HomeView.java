@@ -12,11 +12,8 @@ import com.sketcher.ui.common.AsyncTask;
 import com.sketcher.ui.common.Dialogs;
 import com.sketcher.ui.common.Refreshable;
 import javafx.geometry.Insets;
-import javafx.geometry.Pos;
-import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.layout.FlowPane;
-import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 
 import java.util.List;
@@ -33,12 +30,14 @@ public class HomeView extends VBox implements Refreshable {
 
     private final LibraryService library;
     private final Consumer<SessionSpec> onStartSession;
+    private final Consumer<Integer> onEditPreset;
     private final FlowPane cardsPane = new FlowPane(12, 12);
     private final Label statsLabel = new Label();
 
-    public HomeView(LibraryService library, Consumer<SessionSpec> onStartSession, Consumer<String> onNavigate) {
+    public HomeView(LibraryService library, Consumer<SessionSpec> onStartSession, Consumer<Integer> onEditPreset) {
         this.library = library;
         this.onStartSession = onStartSession;
+        this.onEditPreset = onEditPreset;
         getStyleClass().add("home-view");
         setSpacing(16);
         setPadding(new Insets(24));
@@ -47,12 +46,7 @@ public class HomeView extends VBox implements Refreshable {
         title.getStyleClass().add("home-title");
         statsLabel.getStyleClass().add("hint-label");
 
-        HBox links = new HBox(8,
-                navButton("Import", onNavigate), navButton("Gallery", onNavigate), navButton("Tags", onNavigate),
-                navButton("Settings", onNavigate), navButton("Help", onNavigate));
-        links.setAlignment(Pos.CENTER_LEFT);
-
-        getChildren().addAll(title, statsLabel, cardsPane, new Label("Or go to:"), links);
+        getChildren().addAll(title, statsLabel, cardsPane);
         VBox.setVgrow(cardsPane, javafx.scene.layout.Priority.ALWAYS);
 
         refresh();
@@ -61,12 +55,6 @@ public class HomeView extends VBox implements Refreshable {
     @Override
     public void onShown() {
         refresh();
-    }
-
-    private Button navButton(String label, Consumer<String> onNavigate) {
-        Button button = new Button(label);
-        button.setOnAction(e -> onNavigate.accept(label.toLowerCase()));
-        return button;
     }
 
     private record HomeData(int imageCount, int tagCount, int seenThisWeek, List<Preset> presets,
@@ -114,6 +102,7 @@ public class HomeView extends VBox implements Refreshable {
                     library.presets().setPinned(preset.id(), !preset.pinned());
                     refresh();
                 },
+                () -> onEditPreset.accept(preset.id()),
                 () -> {
                     if (Dialogs.confirm("Delete preset", "Delete \"" + preset.name() + "\"?")) {
                         library.presets().delete(preset.id());
@@ -125,7 +114,7 @@ public class HomeView extends VBox implements Refreshable {
     private PresetCard buildQuickStartCard(String lastSessionJson) {
         SessionSpec spec = SessionSpecCodec.decode(lastSessionJson);
         return new PresetCard("Quick start", summarize(spec) + "  (last used settings)", false,
-                () -> onStartSession.accept(spec), null, null);
+                () -> onStartSession.accept(spec), null, null, null);
     }
 
     private String summarize(SessionSpec spec) {

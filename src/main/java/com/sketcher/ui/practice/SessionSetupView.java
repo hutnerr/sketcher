@@ -14,6 +14,7 @@ import com.sketcher.ui.common.Dialogs;
 import com.sketcher.ui.gallery.FilterBar;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ChoiceBox;
@@ -40,6 +41,8 @@ public class SessionSetupView extends VBox {
     private final FilterBar filterBar;
     private final List<Segment> queuedSegments = new ArrayList<>();
     private final VBox queueListBox = new VBox(4);
+    private final Label queueHint = new Label(
+            "Starting/saving now uses this queue, not the form above — add the current segment to it first if it should be included too.");
     private List<Playlist> playlistsCache = List.of();
 
     private final RadioButton sourceFilterRadio = new RadioButton("Filter");
@@ -50,6 +53,7 @@ public class SessionSetupView extends VBox {
 
     private final ChoiceBox<String> countChoice = new ChoiceBox<>();
     private final ChoiceBox<String> intervalChoice = new ChoiceBox<>();
+    private final HBox intervalRow;
     private final RadioButton randomOrder = new RadioButton("Random");
     private final RadioButton sequentialOrder = new RadioButton("Sequential");
     private final RadioButton tickAdvance = new RadioButton("Advance immediately");
@@ -65,23 +69,48 @@ public class SessionSetupView extends VBox {
     private final CheckBox memoryModeBox = new CheckBox("Memory drawing mode");
     private final TextField memoryShowField = new TextField("30");
     private final TextField memoryHideField = new TextField("10");
-    private final HBox memoryFieldsRow;
+    private final VBox memoryFieldsRow;
+
+    private Integer pendingPreselectPlaylistId;
+    private final Integer editingPresetId;
 
     private static final List<String> COUNT_OPTIONS = List.of("Unlimited", "5", "10", "20", "50", "Custom…");
     private static final List<String> INTERVAL_OPTIONS = List.of(
             "Untimed", "10s", "30s", "60s", "2m", "3m", "5m", "10m", "Custom…");
 
     public SessionSetupView(LibraryService library, Consumer<SessionSpec> onStart) {
-        this.library = library;
-        setSpacing(14);
-        setPadding(new Insets(20));
+        this(library, onStart, null, null, null);
+    }
 
-        filterBar = new FilterBar(library);
+    /** Pre-selects Playlist as the source and that playlist in the dropdown (e.g. "Start practice" from the Playlists page). */
+    public SessionSetupView(LibraryService library, Consumer<SessionSpec> onStart, Integer preselectPlaylistId) {
+        this(library, onStart, preselectPlaylistId, null, null);
+    }
+
+    /** Pre-fills the whole form from an existing preset and swaps "Save as preset…" for "Update preset" (Home page's "Edit" action). */
+    public SessionSetupView(LibraryService library, Consumer<SessionSpec> onStart, SessionSpec editingSpec, int editingPresetId) {
+        this(library, onStart, null, editingSpec, editingPresetId);
+    }
+
+    private SessionSetupView(LibraryService library, Consumer<SessionSpec> onStart, Integer preselectPlaylistId,
+                              SessionSpec editingSpec, Integer editingPresetId) {
+        this.library = library;
+        this.pendingPreselectPlaylistId = preselectPlaylistId;
+        this.editingPresetId = editingPresetId;
+        getStyleClass().add("session-setup-view");
+        setSpacing(22);
+        setPadding(new Insets(24));
+
+        Label heading = new Label(editingPresetId != null ? "Edit preset" : "Practice");
+        heading.getStyleClass().add("home-title");
+
+        filterBar = new FilterBar(library, false);
 
         ToggleGroup sourceGroup = new ToggleGroup();
         sourceFilterRadio.setToggleGroup(sourceGroup);
         sourcePlaylistRadio.setToggleGroup(sourceGroup);
-        sourceFilterRadio.setSelected(true);
+        sourceFilterRadio.setSelected(preselectPlaylistId == null);
+        sourcePlaylistRadio.setSelected(preselectPlaylistId != null);
         sourceFilterRadio.setOnAction(e -> updateSourceVisibility());
         sourcePlaylistRadio.setOnAction(e -> updateSourceVisibility());
         Button refreshPlaylistsButton = new Button("Refresh");
@@ -116,45 +145,170 @@ public class SessionSetupView extends VBox {
         memoryHideField.setPrefWidth(50);
         memoryModeBox.setOnAction(e -> updateTimingAvailability());
 
-        HBox sourceRow = new HBox(10, new Label("Source:"), sourceFilterRadio, sourcePlaylistRadio);
+        HBox sourceRow = new HBox(14, sourceFilterRadio, sourcePlaylistRadio);
         sourceRow.setAlignment(Pos.CENTER_LEFT);
         HBox countRow = new HBox(10, new Label("Image count:"), countChoice);
         countRow.setAlignment(Pos.CENTER_LEFT);
-        HBox intervalRow = new HBox(10, new Label("Interval:"), intervalChoice);
+        intervalRow = new HBox(10, new Label("Interval:"), intervalChoice);
         intervalRow.setAlignment(Pos.CENTER_LEFT);
-        HBox orderRow = new HBox(10, new Label("Order:"), randomOrder, sequentialOrder);
+        HBox orderRow = new HBox(14, new Label("Order:"), randomOrder, sequentialOrder);
         orderRow.setAlignment(Pos.CENTER_LEFT);
         tickRow = new HBox(10, new Label("When timer ends:"), tickAdvance, tickBreak, breakSecondsField,
                 new Label("sec"), tickWait);
         tickRow.setAlignment(Pos.CENTER_LEFT);
         rampRow = new HBox(10, rampBox, rampToField, new Label("sec/image (from the interval above)"));
         rampRow.setAlignment(Pos.CENTER_LEFT);
-        memoryFieldsRow = new HBox(10, new Label("Show"), memoryShowField, new Label("sec, hide"),
-                memoryHideField, new Label("sec, then reveal until dismissed"));
-        memoryFieldsRow.setAlignment(Pos.CENTER_LEFT);
-        VBox memoryRow = new VBox(4, memoryModeBox, memoryFieldsRow);
+        HBox memoryTimesRow = new HBox(8, new Label("Show for"), memoryShowField, new Label("sec, then hide for"),
+                memoryHideField, new Label("sec"));
+        memoryTimesRow.setAlignment(Pos.CENTER_LEFT);
+        Label memoryHint = new Label(
+                "While hidden, draw from memory — it reveals again when you click, press Space, or →.");
+        memoryHint.getStyleClass().add("hint-label");
+        memoryHint.setWrapText(true);
+        memoryFieldsRow = new VBox(6, memoryTimesRow, memoryHint);
+        VBox memoryRow = new VBox(8, memoryModeBox, memoryFieldsRow);
 
         Button addSegmentButton = new Button("+ Add this segment to queue");
         addSegmentButton.setOnAction(e -> addSegmentToQueue());
         queueListBox.setVisible(false);
         queueListBox.setManaged(false);
+        queueHint.getStyleClass().add("hint-label");
+        queueHint.setWrapText(true);
+        queueHint.setVisible(false);
+        queueHint.setManaged(false);
 
         Button startButton = new Button("Start practice");
         startButton.getStyleClass().add("primary-button");
         startButton.setOnAction(e -> start(onStart));
-        Button savePresetButton = new Button("Save as preset…");
-        savePresetButton.setOnAction(e -> saveAsPreset());
+        Button secondaryButton;
+        if (editingPresetId != null) {
+            secondaryButton = new Button("Update preset");
+            secondaryButton.setOnAction(e -> updatePreset(editingPresetId));
+        } else {
+            secondaryButton = new Button("Save as preset…");
+            secondaryButton.setOnAction(e -> saveAsPreset());
+        }
 
-        VBox form = new VBox(10, countRow, intervalRow, orderRow, tickRow, rampRow, memoryRow);
-        HBox actionRow = new HBox(10, startButton, savePresetButton);
+        VBox sourceSection = new VBox(10, sourceRow, filterSection, playlistSection);
+        VBox imagesSection = new VBox(10, countRow, orderRow);
+        VBox timingSection = new VBox(12, intervalRow, tickRow, rampRow, memoryRow);
+        VBox queueSection = new VBox(10, addSegmentButton, queueHint, queueListBox);
+        HBox actionRow = new HBox(10, startButton, secondaryButton);
         actionRow.setAlignment(Pos.CENTER_LEFT);
 
-        getChildren().addAll(new Label("This segment's images:"), sourceRow, filterSection, playlistSection,
-                form, addSegmentButton, new Label("Queued segments (run in order):"), queueListBox, actionRow);
+        getChildren().addAll(heading,
+                section("Source", sourceSection),
+                section("Images", imagesSection),
+                section("Timing", timingSection),
+                section("Multi-segment queue (optional)", queueSection),
+                actionRow);
+
+        if (editingSpec != null && !editingSpec.segments().isEmpty()) {
+            applyEditingSpec(editingSpec);
+        }
 
         updateSourceVisibility();
         updateTimingAvailability();
         loadPlaylists();
+    }
+
+    /**
+     * Pre-fills the form from an existing preset: every segment but the last
+     * goes straight into the queue (same place it'd land if you were
+     * building it fresh one segment at a time), and the last segment's
+     * values populate the live form so it's still the one being edited.
+     */
+    private void applyEditingSpec(SessionSpec editingSpec) {
+        List<Segment> segments = editingSpec.segments();
+        queuedSegments.addAll(segments.subList(0, segments.size() - 1));
+        renderQueueList();
+
+        Segment last = segments.get(segments.size() - 1);
+        if (last.sourceKind() == SourceKind.PLAYLIST) {
+            sourcePlaylistRadio.setSelected(true);
+            pendingPreselectPlaylistId = last.playlistId();
+        } else {
+            sourceFilterRadio.setSelected(true);
+            filterBar.loadFilter(last.filter());
+        }
+
+        selectChoice(countChoice, last.itemCount() == null ? "Unlimited" : String.valueOf(last.itemCount()));
+        if (last.orderMode() == OrderMode.SEQUENTIAL) sequentialOrder.setSelected(true);
+        else randomOrder.setSelected(true);
+
+        if (last.isMemoryMode()) {
+            memoryModeBox.setSelected(true);
+            memoryShowField.setText(String.valueOf(last.memoryShowSeconds()));
+            memoryHideField.setText(String.valueOf(last.memoryHideSeconds()));
+        } else {
+            selectChoice(intervalChoice, intervalLabelFor(last.secondsPerImage()));
+            switch (last.tickBehavior()) {
+                case ADVANCE_IMMEDIATELY -> tickAdvance.setSelected(true);
+                case BREAK -> tickBreak.setSelected(true);
+                case WAIT_FOR_CLICK -> tickWait.setSelected(true);
+            }
+            breakSecondsField.setText(String.valueOf(last.breakSeconds()));
+            if (last.isRamped()) {
+                rampBox.setSelected(true);
+                rampToField.setText(String.valueOf(last.rampToSeconds()));
+            }
+        }
+    }
+
+    private void selectChoice(ChoiceBox<String> box, String value) {
+        box.getSelectionModel().select(box.getItems().contains(value) ? value : "Custom…");
+    }
+
+    private String intervalLabelFor(int seconds) {
+        return switch (seconds) {
+            case 0 -> "Untimed";
+            case 10 -> "10s";
+            case 30 -> "30s";
+            case 60 -> "60s";
+            case 120 -> "2m";
+            case 180 -> "3m";
+            case 300 -> "5m";
+            case 600 -> "10m";
+            default -> "Custom…";
+        };
+    }
+
+    /**
+     * Either the queue, or the live form — never both. Once you've queued at
+     * least one segment, the queue IS the session being built (you used this
+     * same form to build each one); silently tacking the form's current,
+     * maybe-half-reconfigured state on as one more segment was the confusing
+     * part. With nothing queued, the form itself is the single-segment fast
+     * path, unchanged from before.
+     */
+    private List<Segment> resolveSegments() {
+        if (!queuedSegments.isEmpty()) {
+            return new ArrayList<>(queuedSegments);
+        }
+        Segment current = buildSegment();
+        return current == null ? List.of() : List.of(current);
+    }
+
+    /** Replaces this preset's segments in place instead of creating a new one (Home page's "Edit" action). */
+    private void updatePreset(int presetId) {
+        List<Segment> segments = resolveSegments();
+        if (segments.isEmpty()) {
+            Dialogs.error("Nothing to save", "Fill in this segment's fields, or add at least one to the queue.");
+            return;
+        }
+        AsyncTask.runDb(() -> {
+            library.presets().update(presetId, new SessionSpec(segments, presetId));
+            return null;
+        }, ignored -> Dialogs.info("Preset updated", "Your changes have been saved."),
+                err -> Dialogs.error("Could not update preset", err.getMessage()));
+    }
+
+    private VBox section(String title, Node content) {
+        Label label = new Label(title);
+        label.getStyleClass().add("help-heading");
+        VBox box = new VBox(12, label, content);
+        box.getStyleClass().add("form-section");
+        return box;
     }
 
     private void updateSourceVisibility() {
@@ -165,15 +319,32 @@ public class SessionSetupView extends VBox {
         playlistSection.setManaged(playlist);
     }
 
+    /**
+     * Hides (not just disables) whichever timing rows don't apply right now,
+     * instead of leaving dead, disabled controls sitting on screen — "When
+     * timer ends" and "Ramp timer" are meaningless while Untimed is picked
+     * (the default), and the whole interval/tick/ramp cluster is meaningless
+     * once Memory drawing mode takes over timing.
+     */
     private void updateTimingAvailability() {
         boolean memoryMode = memoryModeBox.isSelected();
         boolean timed = !"Untimed".equals(intervalChoice.getValue());
+
         memoryFieldsRow.setVisible(memoryMode);
         memoryFieldsRow.setManaged(memoryMode);
-        tickRow.setDisable(memoryMode);
-        intervalChoice.setDisable(memoryMode);
-        rampBox.setDisable(memoryMode || !timed);
-        boolean ramping = rampBox.isSelected() && !memoryMode && timed;
+
+        intervalRow.setVisible(!memoryMode);
+        intervalRow.setManaged(!memoryMode);
+
+        boolean showTickRow = !memoryMode && timed;
+        tickRow.setVisible(showTickRow);
+        tickRow.setManaged(showTickRow);
+
+        boolean showRampRow = !memoryMode && timed;
+        rampRow.setVisible(showRampRow);
+        rampRow.setManaged(showRampRow);
+
+        boolean ramping = rampBox.isSelected() && showRampRow;
         rampToField.setVisible(ramping);
         rampToField.setManaged(ramping);
     }
@@ -185,7 +356,12 @@ public class SessionSetupView extends VBox {
                     playlistsCache = playlists;
                     String previous = playlistChoice.getValue();
                     playlistChoice.getItems().setAll(playlists.stream().map(Playlist::name).toList());
-                    if (previous != null && playlistChoice.getItems().contains(previous)) {
+                    if (pendingPreselectPlaylistId != null) {
+                        int wanted = pendingPreselectPlaylistId;
+                        pendingPreselectPlaylistId = null;
+                        playlists.stream().filter(p -> p.id() == wanted).findFirst()
+                                .ifPresent(p -> playlistChoice.getSelectionModel().select(p.name()));
+                    } else if (previous != null && playlistChoice.getItems().contains(previous)) {
                         playlistChoice.getSelectionModel().select(previous);
                     } else if (!playlistChoice.getItems().isEmpty()) {
                         playlistChoice.getSelectionModel().select(0);
@@ -265,6 +441,8 @@ public class SessionSetupView extends VBox {
         boolean hasItems = !queuedSegments.isEmpty();
         queueListBox.setVisible(hasItems);
         queueListBox.setManaged(hasItems);
+        queueHint.setVisible(hasItems);
+        queueHint.setManaged(hasItems);
     }
 
     private HBox buildQueueRow(int index) {
@@ -315,9 +493,7 @@ public class SessionSetupView extends VBox {
     }
 
     private void start(Consumer<SessionSpec> onStart) {
-        List<Segment> segments = new ArrayList<>(queuedSegments);
-        Segment current = buildSegment();
-        if (current != null) segments.add(current);
+        List<Segment> segments = resolveSegments();
         if (segments.isEmpty()) {
             Dialogs.error("Nothing to start", "Fill in this segment's fields, or add at least one to the queue.");
             return;
@@ -347,9 +523,7 @@ public class SessionSetupView extends VBox {
 
     /** "Create from the setup screen" (PLAN.md 4.5) — saves without starting a session. */
     private void saveAsPreset() {
-        List<Segment> segments = new ArrayList<>(queuedSegments);
-        Segment current = buildSegment();
-        if (current != null) segments.add(current);
+        List<Segment> segments = resolveSegments();
         if (segments.isEmpty()) {
             Dialogs.error("Nothing to save", "Fill in this segment's fields, or add at least one to the queue.");
             return;

@@ -33,8 +33,10 @@ import javafx.scene.layout.VBox;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -47,8 +49,8 @@ import java.util.stream.Collectors;
  * TilePane holding every image's tile at once.
  */
 public class GalleryView extends StackPane implements Refreshable {
-    private static final int TILE_SIZE = 150;
-    private static final int TILE_GAP = 8;
+    private static final int TILE_SIZE = 190;
+    private static final int TILE_GAP = 10;
 
     private final LibraryService library;
     private final FilterBar filterBar;
@@ -61,6 +63,7 @@ public class GalleryView extends StackPane implements Refreshable {
 
     private final ObservableList<ImageRecord> results = FXCollections.observableArrayList();
     private final Set<Integer> gridSelection = new LinkedHashSet<>();
+    private final Map<Integer, StackPane> renderedTiles = new HashMap<>();
     private Integer lastClickedIndex;
     private boolean gridMode = true;
     private Filter currentFilter = new Filter.All();
@@ -86,14 +89,10 @@ public class GalleryView extends StackPane implements Refreshable {
         gridButton.setOnAction(e -> setMode(true));
         listButton.setOnAction(e -> setMode(false));
 
-        Button addTagsBtn = new Button("Add tags");
-        addTagsBtn.setOnAction(e -> bulkAddTags());
-        Button removeTagsBtn = new Button("Remove tags");
-        removeTagsBtn.setOnAction(e -> bulkRemoveTags());
+        Button editTagsBtn = new Button("Edit tags");
+        editTagsBtn.setOnAction(e -> bulkEditTags());
         Button favoriteBtn = new Button("Favorite");
-        favoriteBtn.setOnAction(e -> bulkFavorite(true));
-        Button unfavoriteBtn = new Button("Unfavorite");
-        unfavoriteBtn.setOnAction(e -> bulkFavorite(false));
+        favoriteBtn.setOnAction(e -> bulkToggleFavorite());
         Button playlistBtn = new Button("Add to playlist");
         playlistBtn.setOnAction(e -> bulkAddToPlaylist());
         Button deleteBtn = new Button("Delete");
@@ -101,7 +100,7 @@ public class GalleryView extends StackPane implements Refreshable {
         deleteBtn.setOnAction(e -> bulkDelete());
 
         HBox toolbar = new HBox(8, gridButton, listButton, new Label("  "),
-                addTagsBtn, removeTagsBtn, favoriteBtn, unfavoriteBtn, playlistBtn, deleteBtn,
+                editTagsBtn, favoriteBtn, playlistBtn, deleteBtn,
                 spacer(), statusLabel);
         toolbar.setAlignment(Pos.CENTER_LEFT);
         toolbar.setPadding(new Insets(10, 12, 10, 12));
@@ -200,6 +199,11 @@ public class GalleryView extends StackPane implements Refreshable {
         @Override
         protected void updateItem(List<ImageRecord> row, boolean empty) {
             super.updateItem(row, empty);
+            for (javafx.scene.Node child : box.getChildren()) {
+                if (child instanceof StackPane sp && sp.getUserData() instanceof Integer id) {
+                    renderedTiles.remove(id, sp);
+                }
+            }
             box.getChildren().clear();
             if (!empty && row != null) {
                 for (ImageRecord record : row) box.getChildren().add(buildTile(record));
@@ -207,10 +211,18 @@ public class GalleryView extends StackPane implements Refreshable {
         }
     }
 
+    /**
+     * Builds one tile. Selection changes update style classes on the already-
+     * rendered tiles directly (see updateSelectionStyles) rather than going
+     * through rebuildTiles()/gridRows.setAll() — replacing the clicked tile's
+     * Node mid-gesture made JavaFX lose track of double-clicks, since its
+     * click-count tracking keys off the Node a click lands on, not just
+     * screen position.
+     */
     private javafx.scene.Node buildTile(ImageRecord record) {
         ImageView imageView = new ImageView(library.thumbnails().load(library.ref(), record.hash()));
-        imageView.setFitWidth(140);
-        imageView.setFitHeight(140);
+        imageView.setFitWidth(TILE_SIZE - 12);
+        imageView.setFitHeight(TILE_SIZE - 12);
         imageView.setPreserveRatio(true);
 
         Label favoriteMark = new Label(record.favorite() ? "★" : "");
@@ -219,12 +231,21 @@ public class GalleryView extends StackPane implements Refreshable {
         StackPane tile = new StackPane(imageView, favoriteMark);
         StackPane.setAlignment(favoriteMark, Pos.TOP_RIGHT);
         tile.getStyleClass().add("gallery-tile");
-        tile.setPrefSize(150, 150);
+        tile.setPrefSize(TILE_SIZE, TILE_SIZE);
+        tile.setUserData(record.id());
         if (gridSelection.contains(record.id())) {
             tile.getStyleClass().add("selected");
         }
+        renderedTiles.put(record.id(), tile);
 
-        tile.setOnMouseClicked(e -> {
+        // MOUSE_PRESSED instead of MOUSE_CLICKED: a CLICKED event only
+        // synthesizes if the release lands back on the exact same node as
+        // the press, which trackpad jitter (or a cell being recycled by the
+        // ListView mid-gesture) can silently break, making clicks/double-
+        // clicks feel like they sometimes just don't register. PRESSED
+        // fires immediately and unconditionally, and still carries an
+        // accurate getClickCount().
+        tile.setOnMousePressed(e -> {
             gridListView.requestFocus();
             if (e.getButton() != MouseButton.PRIMARY) return;
             int index = results.indexOf(record);
@@ -233,6 +254,7 @@ public class GalleryView extends StackPane implements Refreshable {
                 e.consume();
                 return;
             }
+            Set<Integer> previouslySelected = new LinkedHashSet<>(gridSelection);
             if (e.isShiftDown() && lastClickedIndex != null) {
                 int from = Math.min(lastClickedIndex, index);
                 int to = Math.max(lastClickedIndex, index);
@@ -244,17 +266,37 @@ public class GalleryView extends StackPane implements Refreshable {
                 gridSelection.add(record.id());
             }
             lastClickedIndex = index;
-            rebuildTiles();
+            updateSelectionStyles(previouslySelected);
             e.consume();
         });
 
         return tile;
     }
 
+    /** Toggles the "selected" style class on whichever currently-rendered tiles changed, without rebuilding any Node. */
+    private void updateSelectionStyles(Set<Integer> previouslySelected) {
+        Set<Integer> changed = new LinkedHashSet<>(previouslySelected);
+        changed.addAll(gridSelection);
+        for (int id : changed) {
+            StackPane tile = renderedTiles.get(id);
+            if (tile == null) continue;
+            if (gridSelection.contains(id)) {
+                if (!tile.getStyleClass().contains("selected")) tile.getStyleClass().add("selected");
+            } else {
+                tile.getStyleClass().remove("selected");
+            }
+        }
+    }
+
     private void openDetail(int index) {
-        detailView.open(List.copyOf(results), index);
+        // Visible/managed first: ImageDetailView.open() ends with
+        // requestFocus(), which JavaFX silently drops on a node that isn't
+        // part of the visible scene graph yet — do it the other order and
+        // focus (and so Esc-to-close, arrow-key navigation, etc.) never
+        // actually lands on the detail view.
         detailView.setVisible(true);
         detailView.setManaged(true);
+        detailView.open(List.copyOf(results), index);
     }
 
     private void closeDetail() {
@@ -269,28 +311,40 @@ public class GalleryView extends StackPane implements Refreshable {
         return List.copyOf(table.getSelectionModel().getSelectedItems());
     }
 
-    private void bulkAddTags() {
+    /**
+     * Opens the tag picker pre-checked with the tags common to every selected
+     * image, then applies the diff to all of them: newly-checked tags are
+     * added, newly-unchecked ones are removed.
+     */
+    private void bulkEditTags() {
         List<ImageRecord> selected = selectedRecords();
         if (selected.isEmpty()) return;
-        TagPicker.pickMany(library).ifPresent(tagIds -> {
-            for (ImageRecord r : selected) library.images().addTags(r.id(), tagIds);
-            runQuery();
-        });
-    }
-
-    private void bulkRemoveTags() {
-        List<ImageRecord> selected = selectedRecords();
-        if (selected.isEmpty()) return;
-        TagPicker.pickMany(library).ifPresent(tagIds -> {
+        Set<Integer> common = selected.stream()
+                .map(r -> (Set<Integer>) new LinkedHashSet<>(r.tagIds()))
+                .reduce((a, b) -> {
+                    a.retainAll(b);
+                    return a;
+                })
+                .orElseGet(LinkedHashSet::new);
+        TagPicker.pickMany(library, common).ifPresent(after -> {
+            Set<Integer> toAdd = new LinkedHashSet<>(after);
+            toAdd.removeAll(common);
+            Set<Integer> toRemove = new LinkedHashSet<>(common);
+            toRemove.removeAll(after);
             for (ImageRecord r : selected) {
-                for (int tagId : tagIds) library.images().removeTag(r.id(), tagId);
+                if (!toAdd.isEmpty()) library.images().addTags(r.id(), toAdd);
+                for (int tagId : toRemove) library.images().removeTag(r.id(), tagId);
             }
             runQuery();
         });
     }
 
-    private void bulkFavorite(boolean favorite) {
-        for (ImageRecord r : selectedRecords()) library.images().setFavorite(r.id(), favorite);
+    /** Favorites all selected images if any aren't favorited yet, otherwise unfavorites all of them. */
+    private void bulkToggleFavorite() {
+        List<ImageRecord> selected = selectedRecords();
+        if (selected.isEmpty()) return;
+        boolean favorite = selected.stream().anyMatch(r -> !r.favorite());
+        for (ImageRecord r : selected) library.images().setFavorite(r.id(), favorite);
         runQuery();
     }
 

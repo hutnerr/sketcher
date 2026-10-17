@@ -23,7 +23,9 @@ import javafx.scene.layout.VBox;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /** Full-size image view with metadata, favorite/tag editing, and arrow-key navigation (PLAN.md 4.2). */
 public class ImageDetailView extends BorderPane {
@@ -62,14 +64,14 @@ public class ImageDetailView extends BorderPane {
         Button closeButton = new Button("Close");
         closeButton.setOnAction(e -> onClose.run());
         favoriteButton.setOnAction(e -> toggleFavorite());
-        Button addTagsButton = new Button("Add tags…");
-        addTagsButton.setOnAction(e -> addTags());
+        Button editTagsButton = new Button("Edit tags…");
+        editTagsButton.setOnAction(e -> editTags());
         Button deleteButton = new Button("Delete");
         deleteButton.getStyleClass().add("danger-button");
         deleteButton.setOnAction(e -> delete());
 
         HBox topBar = new HBox(10, closeButton, positionLabel, prevButton, nextButton,
-                favoriteButton, addTagsButton, deleteButton);
+                favoriteButton, editTagsButton, deleteButton);
         topBar.setAlignment(Pos.CENTER_LEFT);
         topBar.setPadding(new Insets(14));
         setTop(topBar);
@@ -78,7 +80,7 @@ public class ImageDetailView extends BorderPane {
         tagsPane.setPadding(new Insets(6, 0, 0, 0));
         VBox sidebar = new VBox(10, nameLabel, metaLabel, new Label("Tags:"), tagsPane);
         sidebar.setPadding(new Insets(16));
-        sidebar.setPrefWidth(270);
+        sidebar.setPrefWidth(320);
         setRight(sidebar);
 
         setFocusTraversable(true);
@@ -136,17 +138,32 @@ public class ImageDetailView extends BorderPane {
         onLibraryChanged.run();
     }
 
-    private void addTags() {
+    /** Opens the tag picker pre-checked with this image's current tags and applies the diff: adds, then removes. */
+    private void editTags() {
         ImageRecord record = context.get(index);
-        TagPicker.pickMany(library, new java.util.HashSet<>(record.tagIds())).ifPresent(tagIds -> {
-            library.images().addTags(record.id(), tagIds);
+        Set<Integer> before = new HashSet<>(record.tagIds());
+        TagPicker.pickMany(library, before).ifPresent(after -> {
+            Set<Integer> toAdd = new HashSet<>(after);
+            toAdd.removeAll(before);
+            Set<Integer> toRemove = new HashSet<>(before);
+            toRemove.removeAll(after);
+            if (!toAdd.isEmpty()) library.images().addTags(record.id(), toAdd);
+            for (int tagId : toRemove) library.images().removeTag(record.id(), tagId);
+            refreshCurrent();
             onLibraryChanged.run();
         });
     }
 
     private void removeTag(ImageRecord record, Tag tag) {
         library.images().removeTag(record.id(), tag.id());
+        refreshCurrent();
         onLibraryChanged.run();
+    }
+
+    /** record/favorite/tagIds are immutable, so after editing the current image, re-fetch it to re-render accurately. */
+    private void refreshCurrent() {
+        library.images().findById(context.get(index).id()).ifPresent(updated -> context.set(index, updated));
+        render();
     }
 
     private void delete() {

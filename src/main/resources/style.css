@@ -34,7 +34,7 @@
     -shadow-strong:       rgba(16,18,22,0.14);
 
     -fx-font-family: "Inter", "Segoe UI", "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
-    -fx-font-size: 13px;
+    -fx-font-size: 15px;
     -fx-text-fill: -text-primary;
     -fx-background-color: -bg-app;
 }
@@ -45,33 +45,33 @@
 
 .label {
     -fx-text-fill: -text-primary;
-    -fx-font-size: 13px;
+    -fx-font-size: 15px;
 }
 
 .hint-label {
     -fx-text-fill: -text-tertiary;
-    -fx-font-size: 12px;
+    -fx-font-size: 14px;
 }
 
 .help-heading {
-    -fx-font-size: 15px;
+    -fx-font-size: 18px;
     -fx-font-weight: 600;
     -fx-text-fill: -text-primary;
 }
 
 .home-title {
-    -fx-font-size: 26px;
+    -fx-font-size: 30px;
     -fx-font-weight: 700;
     -fx-text-fill: -text-primary;
 }
 
 .detail-name {
-    -fx-font-size: 16px;
+    -fx-font-size: 19px;
     -fx-font-weight: 600;
 }
 
 .overlay-label {
-    -fx-font-size: 15px;
+    -fx-font-size: 17px;
     -fx-font-weight: 600;
     -fx-text-fill: -accent;
 }
@@ -119,15 +119,15 @@
 
 .nav {
     -fx-background-color: -nav-bg;
-    -fx-min-width: 192px;
-    -fx-pref-width: 192px;
+    -fx-min-width: 224px;
+    -fx-pref-width: 224px;
 }
 
 .nav-title {
     -fx-text-fill: -nav-text-selected;
-    -fx-font-size: 17px;
+    -fx-font-size: 20px;
     -fx-font-weight: 700;
-    -fx-padding: 4 8 18 8;
+    -fx-padding: 4 8 20 8;
 }
 
 .nav .nav-item {
@@ -136,8 +136,8 @@
     -fx-border-width: 0;
     -fx-background-radius: 7;
     -fx-alignment: CENTER_LEFT;
-    -fx-padding: 9 12 9 12;
-    -fx-font-size: 13.5px;
+    -fx-padding: 11 14 11 14;
+    -fx-font-size: 15.5px;
     -fx-font-weight: 500;
     -fx-cursor: hand;
 }
@@ -160,11 +160,16 @@
     -fx-border-width: 1;
     -fx-border-radius: 8;
     -fx-background-radius: 8;
-    -fx-padding: 8 16 8 16;
+    -fx-padding: 10 18 10 18;
     -fx-text-fill: -text-primary;
-    -fx-font-size: 13px;
+    -fx-font-size: 15px;
     -fx-font-weight: 500;
     -fx-cursor: hand;
+    /* Stretch to fill whatever width the layout actually gives us (a VBox's
+       default fillWidth) instead of shrink-wrapping the label. In an HBox
+       this is a no-op unless the container also grants hgrow, so toolbar
+       rows of buttons are unaffected. */
+    -fx-max-width: infinity;
 }
 
 .button:hover, .toggle-button:hover {
@@ -228,8 +233,8 @@
     -fx-border-width: 1;
     -fx-border-radius: 8;
     -fx-background-radius: 8;
-    -fx-padding: 6 10 6 10;
-    -fx-font-size: 13px;
+    -fx-padding: 8 12 8 12;
+    -fx-font-size: 15px;
     -fx-prompt-text-fill: -text-tertiary;
 }
 
@@ -275,7 +280,7 @@
 
 .menu-item .label {
     -fx-text-fill: -text-primary;
-    -fx-font-size: 13px;
+    -fx-font-size: 15px;
 }
 
 .menu-item:focused, .menu-item:hover {
@@ -288,7 +293,7 @@
 
 .check-box, .radio-button {
     -fx-text-fill: -text-primary;
-    -fx-font-size: 13px;
+    -fx-font-size: 15px;
     -fx-cursor: hand;
 }
 
@@ -415,7 +420,7 @@
 
 .table-view .column-header .label {
     -fx-text-fill: -text-secondary;
-    -fx-font-size: 12px;
+    -fx-font-size: 13px;
     -fx-font-weight: 600;
 }
 
@@ -483,16 +488,16 @@
 
 .dialog-pane .content.label {
     -fx-text-fill: -text-primary;
-    -fx-font-size: 13px;
+    -fx-font-size: 15px;
 }
 
 .dialog-pane:header *.header-panel {
     -fx-background-color: -bg-surface-alt;
-    -fx-padding: 16 20 16 20;
+    -fx-padding: 18 22 18 22;
 }
 
 .dialog-pane:header *.header-panel .label {
-    -fx-font-size: 15px;
+    -fx-font-size: 17px;
     -fx-font-weight: 600;
     -fx-text-fill: -text-primary;
 }
@@ -518,8 +523,8 @@
 
 .favorite-mark {
     -fx-text-fill: -warning;
-    -fx-font-size: 17px;
-    -fx-padding: 4;
+    -fx-font-size: 20px;
+    -fx-padding: 5;
     -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.45), 2, 0.6, 0, 0);
 }
 
@@ -533,7 +538,7 @@
 
 .tag-chip .label {
     -fx-text-fill: -accent-pressed;
-    -fx-font-size: 12px;
+    -fx-font-size: 14px;
     -fx-font-weight: 500;
 }
 
@@ -541,8 +546,55 @@
     -fx-background-color: transparent;
     -fx-border-width: 0;
     -fx-padding: 0 2 0 2;
-    -fx-font-size: 10px;
+    -fx-font-size: 12px;
     -fx-text-fill: -accent-pressed;
+}
+
+/* Small circular overlay button (e.g. "remove from playlist") that sits on
+   top of a thumbnail — needs its own backing since it has to stay legible
+   over any image, not just the app's own surface colors. */
+.tile-remove-button {
+    -fx-background-color: rgba(10, 12, 15, 0.62);
+    -fx-text-fill: #ffffff;
+    -fx-border-width: 0;
+    -fx-background-radius: 999;
+    -fx-min-width: 30px;
+    -fx-min-height: 30px;
+    -fx-max-width: 30px;
+    -fx-max-height: 30px;
+    -fx-padding: 0;
+    -fx-font-size: 14px;
+    -fx-font-weight: 700;
+    -fx-alignment: CENTER;
+    -fx-cursor: hand;
+}
+
+.tile-remove-button:hover {
+    -fx-background-color: -danger;
+}
+
+/* ---------- Form sections ---------- */
+
+/* A labeled, outlined group of related controls (Settings, Practice setup):
+   an accent-tinted border with the page's own background inside, so it
+   reads as a grouping outline rather than a raised card. */
+.form-section {
+    -fx-background-color: -bg-app;
+    -fx-border-color: -accent-soft-border;
+    -fx-border-width: 1.5;
+    -fx-border-radius: 10;
+    -fx-background-radius: 10;
+    -fx-padding: 18;
+}
+
+/* FilterBar normally carries its own -bg-surface card look as a standalone
+   toolbar (Gallery). Nested inside a .form-section it would show as a
+   mismatched white box inside the section's own background — blend it in
+   instead. */
+.form-section .filter-bar {
+    -fx-background-color: transparent;
+    -fx-border-width: 0;
+    -fx-padding: 0;
 }
 
 /* ---------- Home ---------- */
@@ -562,11 +614,11 @@
 }
 
 .preset-card-name {
-    -fx-font-size: 15px;
+    -fx-font-size: 17px;
     -fx-font-weight: 600;
 }
 
 .preset-card-summary {
     -fx-text-fill: -text-secondary;
-    -fx-font-size: 12px;
+    -fx-font-size: 14px;
 }

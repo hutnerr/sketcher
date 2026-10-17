@@ -32,6 +32,16 @@ public class PlaylistDao {
         }
     }
 
+    public void rename(int playlistId, String name) {
+        try (PreparedStatement ps = connection.prepareStatement("UPDATE playlist SET name = ? WHERE id = ?")) {
+            ps.setString(1, name);
+            ps.setInt(2, playlistId);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     public void delete(int playlistId) {
         try (PreparedStatement ps = connection.prepareStatement("DELETE FROM playlist WHERE id = ?")) {
             ps.setInt(1, playlistId);

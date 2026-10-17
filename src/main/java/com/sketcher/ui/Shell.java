@@ -27,9 +27,20 @@ public class Shell extends BorderPane {
         nav.addItem(key, label, this::show);
     }
 
+    /** Same as registerView, but pinned below the spacer at the bottom of the sidebar (e.g. Settings, grouped with Help). */
+    public void registerFooterView(String key, String label, Supplier<Region> factory) {
+        factories.put(key, factory);
+        nav.addFooterItem(key, label, this::show);
+    }
+
     /** Registers a view reachable only by calling show() directly (e.g. from a button elsewhere), with no sidebar entry. */
     public void registerHiddenView(String key, Supplier<Region> factory) {
         factories.put(key, factory);
+    }
+
+    /** Adds an action button pinned to the bottom of the sidebar (e.g. Help) that doesn't swap the center content. */
+    public void registerFooterAction(String label, Runnable action) {
+        nav.addFooterItem(label, action);
     }
 
     public void show(String key) {

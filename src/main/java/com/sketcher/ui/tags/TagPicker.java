@@ -22,9 +22,12 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * Reusable tag tree selector: single or multi-select, with create-on-the-fly
- * (PLAN.md 4.1 import tagging, 4.3 tag management). Used by import batch
- * tagging, the gallery filter bar, bulk tagging, and the tag manager.
+ * Reusable tag tree selector: single or multi-select, with optional
+ * create-on-the-fly (PLAN.md 4.1 import tagging, 4.3 tag management). Used
+ * by import batch tagging, the filter builder, bulk tagging, and per-image
+ * tagging — only the filter builder (picking an existing tag to filter by,
+ * not managing the vocabulary) disables tag creation. Starts fully expanded,
+ * with a button to collapse/expand the whole tree.
  *
  * Multi-select uses a checkbox per row rather than relying on the TreeView's
  * own MULTIPLE selection mode (which needs Ctrl/Shift+click and isn't
@@ -33,12 +36,21 @@ import java.util.stream.Collectors;
 public class TagPicker extends VBox {
     private final LibraryService library;
     private final boolean multiSelect;
+    private final boolean allowCreate;
     private final TreeView<Tag> treeView = new TreeView<>();
     private final TextField newTagField = new TextField();
+    private final Button collapseToggle = new Button("Collapse all");
+    private boolean collapsed = false;
 
     public TagPicker(LibraryService library, boolean multiSelect) {
+        this(library, multiSelect, true);
+    }
+
+    /** allowCreate is false for the filter builder's tag picker — you're choosing an existing tag to filter by, not managing the tag vocabulary. */
+    public TagPicker(LibraryService library, boolean multiSelect, boolean allowCreate) {
         this.library = library;
         this.multiSelect = multiSelect;
+        this.allowCreate = allowCreate;
         setSpacing(6);
 
         treeView.setShowRoot(false);
@@ -66,15 +78,22 @@ public class TagPicker extends VBox {
                 }
             });
         }
-        treeView.setPrefHeight(260);
+        treeView.setPrefHeight(300);
 
-        newTagField.setPromptText("New tag name");
-        Button addButton = new Button("Add");
-        addButton.setOnAction(e -> createTagUnderSelection());
-        HBox addRow = new HBox(6, newTagField, addButton);
-        addRow.setPadding(new Insets(4, 0, 0, 0));
+        collapseToggle.setOnAction(e -> toggleCollapse());
+        HBox treeToolbar = new HBox(collapseToggle);
 
-        getChildren().addAll(treeView, addRow);
+        getChildren().addAll(treeToolbar, treeView);
+
+        if (allowCreate) {
+            newTagField.setPromptText("New tag name");
+            Button addButton = new Button("Add");
+            addButton.setOnAction(e -> createTagUnderSelection());
+            HBox addRow = new HBox(6, newTagField, addButton);
+            addRow.setPadding(new Insets(4, 0, 0, 0));
+            getChildren().add(addRow);
+        }
+
         refresh();
     }
 
@@ -90,6 +109,8 @@ public class TagPicker extends VBox {
             hiddenRoot.getChildren().add(buildNode(root, byParent));
         }
         treeView.setRoot(hiddenRoot);
+        collapsed = false;
+        collapseToggle.setText("Collapse all");
     }
 
     private TreeItem<Tag> buildNode(Tag tag, Map<Integer, List<Tag>> byParent) {
@@ -101,10 +122,35 @@ public class TagPicker extends VBox {
         } else {
             item = new TreeItem<>(tag);
         }
+        item.setExpanded(true);
         for (Tag child : byParent.getOrDefault(tag.id(), List.of())) {
             item.getChildren().add(buildNode(child, byParent));
         }
         return item;
+    }
+
+    /**
+     * Collapses/expands every tag's sub-tags, but leaves the root-level tags
+     * themselves listed — the hidden tree root (treeView.getRoot(), separate
+     * from setShowRoot(false) which only hides its own row) must stay
+     * expanded itself, or its children (every root-level tag) disappear too.
+     */
+    private void toggleCollapse() {
+        collapsed = !collapsed;
+        collapseToggle.setText(collapsed ? "Expand all" : "Collapse all");
+        TreeItem<Tag> root = treeView.getRoot();
+        if (root == null) return;
+        for (TreeItem<Tag> child : root.getChildren()) {
+            setAllExpanded(child, !collapsed);
+        }
+    }
+
+    private void setAllExpanded(TreeItem<Tag> node, boolean expanded) {
+        if (node == null) return;
+        node.setExpanded(expanded);
+        for (TreeItem<Tag> child : node.getChildren()) {
+            setAllExpanded(child, expanded);
+        }
     }
 
     private void createTagUnderSelection() {
@@ -185,9 +231,9 @@ public class TagPicker extends VBox {
         }
     }
 
-    /** Opens a modal single-tag picker; used by the filter builder to choose one tag per row. */
+    /** Opens a modal single-tag picker; used by the filter builder to choose one tag per row (no on-the-fly tag creation — you're picking an existing tag to filter by). */
     public static java.util.Optional<Tag> pickOne(LibraryService library) {
-        TagPicker picker = new TagPicker(library, false);
+        TagPicker picker = new TagPicker(library, false, false);
         javafx.scene.control.Dialog<Tag> dialog = new javafx.scene.control.Dialog<>();
         dialog.setTitle("Choose a tag");
         dialog.getDialogPane().getButtonTypes().addAll(

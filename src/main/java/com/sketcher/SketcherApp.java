@@ -4,7 +4,7 @@ import com.sketcher.config.AppConfig;
 import com.sketcher.config.ConfigStore;
 import com.sketcher.filter.Filter;
 import com.sketcher.library.LibraryService;
-import com.sketcher.library.StarterTagSets;
+import com.sketcher.model.SessionSpec;
 import com.sketcher.ui.Shell;
 import com.sketcher.ui.common.AsyncTask;
 import com.sketcher.ui.common.Dialogs;
@@ -13,21 +13,22 @@ import com.sketcher.ui.gallery.GalleryActions;
 import com.sketcher.ui.gallery.GalleryView;
 import com.sketcher.ui.home.HomeView;
 import com.sketcher.ui.imports.ImportView;
+import com.sketcher.ui.playlist.PlaylistView;
 import com.sketcher.ui.practice.PracticeContainerView;
 import com.sketcher.ui.settings.HelpView;
-import com.sketcher.ui.settings.RecycleBinView;
 import com.sketcher.ui.settings.SettingsView;
 import com.sketcher.ui.tags.TagManagerView;
 import javafx.application.Application;
 import javafx.scene.Scene;
-import javafx.scene.control.ChoiceDialog;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.Dialog;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.Stage;
 
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
+import java.util.function.Consumer;
 
 /** App entry point: owns config, the chosen library, and the navigation shell (PLAN.md 3). */
 public class SketcherApp extends Application {
@@ -51,22 +52,29 @@ public class SketcherApp extends Application {
 
         Shell shell = new Shell();
         PracticeContainerView practiceContainerView = new PracticeContainerView(library);
-        HomeView homeView = new HomeView(library,
-                spec -> {
-                    practiceContainerView.startSpec(spec);
-                    shell.show("practice");
-                },
-                shell::show);
+        Consumer<SessionSpec> startSession = spec -> {
+            practiceContainerView.startSpec(spec);
+            shell.show("practice");
+        };
+        Consumer<Integer> startPracticeWithPlaylist = playlistId -> {
+            practiceContainerView.showSetupWithPlaylist(playlistId);
+            shell.show("practice");
+        };
+        Consumer<Integer> editPreset = presetId -> {
+            practiceContainerView.showSetupForEdit(presetId, library.presets().loadSpec(presetId));
+            shell.show("practice");
+        };
+        HomeView homeView = new HomeView(library, startSession, editPreset);
 
         shell.registerView("home", "Home", () -> homeView);
         shell.registerView("gallery", "Gallery", () -> new GalleryView(library));
         shell.registerView("import", "Import", () -> new ImportView(library));
         shell.registerView("tags", "Tags", () -> new TagManagerView(library));
+        shell.registerView("playlists", "Playlists", () -> new PlaylistView(library, startPracticeWithPlaylist));
         shell.registerView("practice", "Practice", () -> practiceContainerView);
-        shell.registerView("settings", "Settings",
-                () -> new SettingsView(library, configStore, config, stage, shell::show));
-        shell.registerHiddenView("recyclebin", () -> new RecycleBinView(library));
-        shell.registerView("help", "Help", () -> new HelpView());
+        shell.registerFooterView("settings", "Settings",
+                () -> new SettingsView(library, configStore, config, stage));
+        shell.registerFooterAction("?", () -> showHelp(stage));
         shell.show("home");
 
         purgeExpiredRecycleItems(library);
@@ -96,19 +104,21 @@ public class SketcherApp extends Application {
         });
     }
 
-    /** No library yet → offer a starter tag set, then point at Import (PLAN.md 4.6). */
+    /** Help is a popup, not a sidebar page, so it stays reachable from any screen via the "?" footer button. */
+    private void showHelp(Stage stage) {
+        Dialog<Void> dialog = new Dialog<>();
+        dialog.setTitle("Help");
+        dialog.initOwner(stage);
+        dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
+        dialog.getDialogPane().setContent(new HelpView());
+        dialog.getDialogPane().setPrefSize(620, 680);
+        Theme.style(dialog.getDialogPane());
+        dialog.showAndWait();
+    }
+
+    /** No library yet → point at Import (PLAN.md 4.6). */
     private void runFirstRunFlow(Shell shell) {
-        if (Dialogs.confirm("Welcome to Sketcher",
-                "This library is empty. Import a starter tag set (figure study, animals, or environments) "
-                        + "to get going? You can always do this later from Tags.")) {
-            List<String> keys = List.copyOf(StarterTagSets.AVAILABLE.keySet());
-            ChoiceDialog<String> dialog = new ChoiceDialog<>(keys.get(0), keys);
-            dialog.setTitle("Import starter tag set");
-            dialog.setHeaderText(null);
-            dialog.setContentText("Choose a tag set:");
-            dialog.showAndWait().ifPresent(key -> StarterTagSets.apply(key, library.tags()));
-        }
-        Dialogs.info("Next step", "Head to Import to add your first images.");
+        Dialogs.info("Welcome to Sketcher", "This library is empty. Head to Import to add your first images.");
         shell.show("import");
     }
 

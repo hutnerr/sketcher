@@ -49,6 +49,28 @@ public class PresetDao {
         }
     }
 
+    /** Replaces this preset's segments in place — name/pin/use-stats are untouched (e.g. after editing it). */
+    public void update(int presetId, SessionSpec spec) {
+        try {
+            connection.setAutoCommit(false);
+            deleteSegments(presetId);
+            insertSegments(presetId, spec.segments());
+            connection.commit();
+        } catch (SQLException e) {
+            rollbackQuietly();
+            throw new RuntimeException("Failed to update preset " + presetId, e);
+        } finally {
+            setAutoCommitQuietly(true);
+        }
+    }
+
+    private void deleteSegments(int presetId) throws SQLException {
+        try (PreparedStatement ps = connection.prepareStatement("DELETE FROM segment WHERE preset_id = ?")) {
+            ps.setInt(1, presetId);
+            ps.executeUpdate();
+        }
+    }
+
     public void rename(int presetId, String newName) {
         if (nameExists(newName, presetId)) {
             throw new IllegalStateException("A preset named \"" + newName + "\" already exists");

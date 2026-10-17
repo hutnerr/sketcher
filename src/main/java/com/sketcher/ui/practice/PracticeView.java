@@ -16,11 +16,13 @@ import javafx.animation.Animation;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.geometry.Insets;
+import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
 import javafx.scene.Group;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.Separator;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.effect.ColorAdjust;
 import javafx.scene.image.Image;
@@ -188,11 +190,16 @@ public class PracticeView extends BorderPane {
         Button tagButton = new Button("Tag…");
         tagButton.setOnAction(e -> tagCurrent());
 
-        HBox bar = new HBox(10, exitButton, pauseButton, prevButton, nextButton, flipHButton, flipVButton,
-                grayscaleButton, zoomFitButton, favoriteButton, tagButton, keepTransformsBox, showTagsBox);
+        HBox bar = new HBox(10, exitButton, sep(), pauseButton, prevButton, nextButton, sep(),
+                flipHButton, flipVButton, grayscaleButton, zoomFitButton, sep(),
+                favoriteButton, tagButton, sep(), keepTransformsBox, showTagsBox);
         bar.setAlignment(Pos.CENTER_LEFT);
         bar.setPadding(new Insets(14));
         return bar;
+    }
+
+    private Separator sep() {
+        return new Separator(Orientation.VERTICAL);
     }
 
     /** Same "next" semantics as the Right-arrow shortcut: dismiss a waiting phase before actually advancing. */
