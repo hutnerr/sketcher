@@ -5,12 +5,13 @@ import com.sketcher.model.ImageRecord;
 import com.sketcher.ui.common.AsyncTask;
 import com.sketcher.ui.common.Dialogs;
 import com.sketcher.ui.common.Refreshable;
+import com.sketcher.ui.components.AppButton;
+import com.sketcher.ui.components.Card;
+import com.sketcher.ui.components.EmptyState;
+import com.sketcher.ui.components.Page;
 import com.sketcher.ui.gallery.GalleryActions;
-import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.control.Button;
 import javafx.scene.control.Label;
-import javafx.scene.control.ScrollPane;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.HBox;
@@ -27,33 +28,21 @@ import java.util.List;
  * again, permanent delete and "empty bin" are irreversible. Auto-purge after
  * N days (PLAN.md 4.9) runs on library open, in SketcherApp, not here.
  */
-public class RecycleBinView extends VBox implements Refreshable {
+public class RecycleBinView extends Page implements Refreshable {
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
             .withZone(ZoneId.systemDefault());
 
     private final LibraryService library;
-    private final VBox listBox = new VBox(8);
-    private final Button emptyBinButton = new Button("Empty bin");
-    private final Label countLabel = new Label();
+    private final AppButton emptyBinButton = AppButton.danger("Empty bin", this::emptyBin);
+    private final VBox listBox;
 
     public RecycleBinView(LibraryService library) {
+        super("Recycle bin");
         this.library = library;
         getStyleClass().add("settings-view");
-        setSpacing(16);
-        setPadding(new Insets(24));
-
-        Label heading = new Label("Recycle bin");
-        heading.getStyleClass().add("home-title");
-        emptyBinButton.setOnAction(e -> emptyBin());
-
-        HBox headerRow = new HBox(16, countLabel, emptyBinButton);
-        headerRow.setAlignment(Pos.CENTER_LEFT);
-
-        ScrollPane scroll = new ScrollPane(listBox);
-        scroll.setFitToWidth(true);
-        VBox.setVgrow(scroll, javafx.scene.layout.Priority.ALWAYS);
-
-        getChildren().addAll(heading, headerRow, scroll);
+        setActions(emptyBinButton);
+        listBox = setScrollingBody();
+        listBox.setSpacing(10);
         refresh();
     }
 
@@ -70,23 +59,22 @@ public class RecycleBinView extends VBox implements Refreshable {
     }
 
     private void render(List<ImageRecord> deleted) {
-        countLabel.setText(deleted.size() + " deleted image(s)");
+        setSubtitle(deleted.size() + (deleted.size() == 1 ? " deleted image" : " deleted images"));
         emptyBinButton.setDisable(deleted.isEmpty());
         listBox.getChildren().clear();
         for (ImageRecord record : deleted) {
             listBox.getChildren().add(buildRow(record));
         }
         if (deleted.isEmpty()) {
-            Label empty = new Label("Nothing in the recycle bin.");
-            empty.getStyleClass().add("hint-label");
-            listBox.getChildren().add(empty);
+            listBox.getChildren().add(new EmptyState("The recycle bin is empty",
+                    "Images you delete from the Gallery land here first, so they can be restored."));
         }
     }
 
-    private HBox buildRow(ImageRecord record) {
+    private Card buildRow(ImageRecord record) {
         ImageView thumb = new ImageView();
-        thumb.setFitWidth(64);
-        thumb.setFitHeight(64);
+        thumb.setFitWidth(72);
+        thumb.setFitHeight(72);
         thumb.setPreserveRatio(true);
         Image image = library.thumbnails().load(library.ref(), record.hash());
         if (image != null) thumb.setImage(image);
@@ -95,17 +83,16 @@ public class RecycleBinView extends VBox implements Refreshable {
         String deletedAt = record.deletedAt() == null ? "" : DATE_FORMAT.format(Instant.ofEpochMilli(record.deletedAt()));
         Label deletedLabel = new Label("Deleted " + deletedAt);
         deletedLabel.getStyleClass().add("hint-label");
-        VBox info = new VBox(2, name, deletedLabel);
+        VBox info = new VBox(4, name, deletedLabel);
 
-        Button restoreButton = new Button("Restore");
-        restoreButton.setOnAction(e -> restore(record));
-        Button deleteButton = new Button("Delete permanently");
-        deleteButton.setOnAction(e -> permanentlyDelete(record));
-
-        HBox row = new HBox(12, thumb, info, restoreButton, deleteButton);
+        HBox row = new HBox(16, thumb, info,
+                AppButton.secondary("Restore", () -> restore(record)).small(),
+                AppButton.danger("Delete permanently", () -> permanentlyDelete(record)).small());
         row.setAlignment(Pos.CENTER_LEFT);
         HBox.setHgrow(info, javafx.scene.layout.Priority.ALWAYS);
-        return row;
+        Card card = new Card().add(row);
+        card.setPadding(new javafx.geometry.Insets(12, 16, 12, 12));
+        return card;
     }
 
     private void restore(ImageRecord record) {

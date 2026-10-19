@@ -11,10 +11,10 @@ import com.sketcher.practice.SessionSpecCodec;
 import com.sketcher.ui.common.AsyncTask;
 import com.sketcher.ui.common.Dialogs;
 import com.sketcher.ui.common.Refreshable;
-import javafx.geometry.Insets;
-import javafx.scene.control.Label;
+import com.sketcher.ui.components.EmptyState;
+import com.sketcher.ui.components.Page;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.layout.FlowPane;
-import javafx.scene.layout.VBox;
 
 import java.util.List;
 import java.util.function.Consumer;
@@ -25,29 +25,25 @@ import java.util.function.Consumer;
  * a small library stat line, and secondary links. Deliberately a launcher,
  * not a dashboard.
  */
-public class HomeView extends VBox implements Refreshable {
+public class HomeView extends Page implements Refreshable {
     private static final String LAST_SESSION_SPEC_KEY = "last_session_spec";
 
     private final LibraryService library;
     private final Consumer<SessionSpec> onStartSession;
     private final Consumer<Integer> onEditPreset;
-    private final FlowPane cardsPane = new FlowPane(12, 12);
-    private final Label statsLabel = new Label();
+    private final FlowPane cardsPane = new FlowPane(20, 20);
 
     public HomeView(LibraryService library, Consumer<SessionSpec> onStartSession, Consumer<Integer> onEditPreset) {
+        super("Home");
         this.library = library;
         this.onStartSession = onStartSession;
         this.onEditPreset = onEditPreset;
         getStyleClass().add("home-view");
-        setSpacing(16);
-        setPadding(new Insets(24));
 
-        Label title = new Label("Sketcher");
-        title.getStyleClass().add("home-title");
-        statsLabel.getStyleClass().add("hint-label");
-
-        getChildren().addAll(title, statsLabel, cardsPane);
-        VBox.setVgrow(cardsPane, javafx.scene.layout.Priority.ALWAYS);
+        ScrollPane scroll = new ScrollPane(cardsPane);
+        scroll.setFitToWidth(true);
+        scroll.getStyleClass().add("page-scroll");
+        setBody(scroll);
 
         refresh();
     }
@@ -74,7 +70,7 @@ public class HomeView extends VBox implements Refreshable {
     }
 
     private void render(HomeData data) {
-        statsLabel.setText(data.imageCount() + " image(s)  ·  " + data.tagCount() + " tag(s)  ·  "
+        setSubtitle(data.imageCount() + " images  ·  " + data.tagCount() + " tags  ·  "
                 + data.seenThisWeek() + " practiced this week");
 
         cardsPane.getChildren().clear();
@@ -85,11 +81,10 @@ public class HomeView extends VBox implements Refreshable {
             cardsPane.getChildren().add(buildPresetCard(preset));
         }
         if (data.presets().isEmpty() && data.lastSessionJson() == null) {
-            Label empty = new Label(data.imageCount() == 0
+            EmptyState empty = new EmptyState("No presets yet", data.imageCount() == 0
                     ? "Import some images, then start a session from Practice to get going."
                     : "Start a session from Practice, then save it as a preset for one-click practice here.");
-            empty.getStyleClass().add("hint-label");
-            empty.setWrapText(true);
+            empty.prefWidthProperty().bind(cardsPane.widthProperty());
             cardsPane.getChildren().add(empty);
         }
     }
@@ -113,8 +108,10 @@ public class HomeView extends VBox implements Refreshable {
 
     private PresetCard buildQuickStartCard(String lastSessionJson) {
         SessionSpec spec = SessionSpecCodec.decode(lastSessionJson);
-        return new PresetCard("Quick start", summarize(spec) + "  (last used settings)", false,
+        PresetCard card = new PresetCard("Quick start", summarize(spec) + "\nYour last used settings", false,
                 () -> onStartSession.accept(spec), null, null, null);
+        card.accent();
+        return card;
     }
 
     private String summarize(SessionSpec spec) {

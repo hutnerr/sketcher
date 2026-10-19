@@ -3,15 +3,18 @@ package com.sketcher.ui.gallery;
 import com.sketcher.filter.Filter;
 import com.sketcher.library.LibraryService;
 import com.sketcher.model.Tag;
+import com.sketcher.ui.components.AppButton;
+import com.sketcher.ui.components.SegmentedControl;
 import com.sketcher.ui.tags.TagPicker;
-import javafx.geometry.Insets;
-import javafx.scene.control.Button;
+import javafx.geometry.Pos;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ChoiceBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
+import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 
 import java.util.ArrayList;
@@ -28,7 +31,7 @@ import java.util.function.Consumer;
 public class FilterBar extends VBox {
     private final LibraryService library;
     private final boolean showNameSearch;
-    private final VBox rowsBox = new VBox(4);
+    private final VBox rowsBox = new VBox(8);
     private final List<TagRow> rows = new ArrayList<>();
     private final CheckBox favoritesOnly = new CheckBox("Favorites only");
     private final TextField nameSearch = new TextField();
@@ -47,10 +50,13 @@ public class FilterBar extends VBox {
         this.library = library;
         this.showNameSearch = showNameSearch;
         getStyleClass().add("filter-bar");
-        setSpacing(8);
-        setPadding(new Insets(12));
+        setSpacing(12);
 
         nameSearch.setPromptText("Search by filename…");
+        nameSearch.setPrefWidth(280);
+        nameSearch.setMinWidth(160);
+        favoritesOnly.setMinWidth(USE_PREF_SIZE);
+        notSeenChoice.setMinWidth(USE_PREF_SIZE);
         nameSearch.textProperty().addListener((o, a, b) -> fireChange());
         favoritesOnly.setOnAction(e -> fireChange());
 
@@ -61,13 +67,16 @@ public class FilterBar extends VBox {
         notSeenChoice.getSelectionModel().select(0);
         notSeenChoice.getSelectionModel().selectedIndexProperty().addListener((o, a, b) -> fireChange());
 
-        Button addTagRow = new Button("+ Tag filter");
-        addTagRow.setOnAction(e -> addRow());
+        AppButton addTagRow = AppButton.secondary("+ Tag filter", this::addRow);
 
-        HBox topRow = new HBox(10, favoritesOnly);
+        // Wraps onto a second line instead of forcing the page wider in a narrow window.
+        FlowPane topRow = new FlowPane(12, 10);
+        topRow.setAlignment(Pos.CENTER_LEFT);
         if (showNameSearch) topRow.getChildren().add(nameSearch);
-        topRow.getChildren().addAll(notSeenChoice, addTagRow);
+        topRow.getChildren().addAll(notSeenChoice, favoritesOnly, addTagRow);
 
+        rowsBox.setVisible(false);
+        rowsBox.setManaged(false);
         getChildren().addAll(topRow, rowsBox);
     }
 
@@ -80,6 +89,7 @@ public class FilterBar extends VBox {
             TagRow row = new TagRow(tag, rows.isEmpty());
             rows.add(row);
             rowsBox.getChildren().add(row);
+            updateRowsVisibility();
             fireChange();
         });
     }
@@ -88,18 +98,27 @@ public class FilterBar extends VBox {
         TagRow row = new TagRow(tag, rows.isEmpty());
         row.includeDescendants.setSelected(includeDescendants);
         row.exclude.setSelected(notFlag);
-        if (combinator != null) row.combinatorBox.getSelectionModel().select(combinator);
+        if (combinator != null) row.combinator.setValue(combinator);
         rows.add(row);
         rowsBox.getChildren().add(row);
+        updateRowsVisibility();
+    }
+
+    private void updateRowsVisibility() {
+        rowsBox.setVisible(!rows.isEmpty());
+        rowsBox.setManaged(!rows.isEmpty());
     }
 
     private void removeRow(TagRow row) {
         rows.remove(row);
         rowsBox.getChildren().remove(row);
         if (!rows.isEmpty()) {
-            rows.get(0).combinatorBox.setVisible(false);
-            rows.get(0).combinatorBox.setManaged(false);
+            rows.get(0).combinator.setVisible(false);
+            rows.get(0).combinator.setManaged(false);
+            rows.get(0).leadLabel.setVisible(true);
+            rows.get(0).leadLabel.setManaged(true);
         }
+        updateRowsVisibility();
         fireChange();
     }
 
@@ -173,7 +192,7 @@ public class FilterBar extends VBox {
             if (row.exclude.isSelected()) f = new Filter.Not(f);
             if (tagFold == null) {
                 tagFold = f;
-            } else if ("OR".equals(row.combinatorBox.getValue())) {
+            } else if ("OR".equals(row.combinator.getValue())) {
                 tagFold = new Filter.Or(List.of(tagFold, f));
             } else {
                 tagFold = new Filter.And(List.of(tagFold, f));
@@ -195,32 +214,46 @@ public class FilterBar extends VBox {
         return new Filter.And(extras);
     }
 
+    /**
+     * One tag term: "Where / AND / OR", the tag, include-sub-tags, an
+     * Include/Exclude switch (the NOT toggle), and remove. Sits on a tinted
+     * rounded strip so each term reads as one unit.
+     */
     private class TagRow extends HBox {
         final Tag tag;
-        final ChoiceBox<String> combinatorBox = new ChoiceBox<>();
-        final CheckBox includeDescendants = new CheckBox("+sub-tags");
-        final ToggleButton exclude = new ToggleButton("NOT");
+        final SegmentedControl<String> combinator = new SegmentedControl<String>()
+                .option("AND", "And")
+                .option("OR", "Or");
+        final Label leadLabel = new Label("Where");
+        final CheckBox includeDescendants = new CheckBox("Include sub-tags");
+        final ToggleButton exclude = AppButton.small(AppButton.toggle("Exclude", AppButton.Variant.SECONDARY));
 
         TagRow(Tag tag, boolean first) {
             this.tag = tag;
-            setSpacing(8);
-            combinatorBox.getItems().addAll("AND", "OR");
-            combinatorBox.getSelectionModel().select("AND");
-            combinatorBox.setVisible(!first);
-            combinatorBox.setManaged(!first);
-            combinatorBox.getSelectionModel().selectedIndexProperty().addListener((o, a, b) -> fireChange());
+            getStyleClass().add("filter-row");
+            setSpacing(14);
+            setAlignment(Pos.CENTER_LEFT);
+            combinator.setVisible(!first);
+            combinator.setManaged(!first);
+            combinator.onChange(v -> fireChange());
+            leadLabel.getStyleClass().add("muted-label");
+            leadLabel.setMinWidth(USE_PREF_SIZE);
+            leadLabel.setVisible(first);
+            leadLabel.setManaged(first);
 
             Label label = new Label(library.tags().fullPath(tag.id()));
-            label.setPrefWidth(200);
+            label.getStyleClass().add("filter-row-tag");
+            label.setMinWidth(120);
+            HBox.setHgrow(label, Priority.ALWAYS);
+            label.setMaxWidth(Double.MAX_VALUE);
 
             includeDescendants.setSelected(true);
+            includeDescendants.setMinWidth(USE_PREF_SIZE);
             includeDescendants.setOnAction(e -> fireChange());
             exclude.setOnAction(e -> fireChange());
 
-            Button removeButton = new Button("x");
-            removeButton.setOnAction(e -> removeRow(this));
-
-            getChildren().addAll(combinatorBox, label, includeDescendants, exclude, removeButton);
+            getChildren().addAll(leadLabel, combinator, label, includeDescendants, exclude,
+                    AppButton.icon("✕", "Remove this filter", () -> removeRow(this)));
         }
     }
 }

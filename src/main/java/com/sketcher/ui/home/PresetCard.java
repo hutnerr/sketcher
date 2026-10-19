@@ -1,29 +1,30 @@
 package com.sketcher.ui.home;
 
-import javafx.geometry.Insets;
+import com.sketcher.ui.components.AppButton;
+import com.sketcher.ui.components.Card;
+import com.sketcher.ui.components.Chip;
+import com.sketcher.ui.components.Spacer;
 import javafx.geometry.Pos;
-import javafx.scene.control.Button;
 import javafx.scene.control.Label;
-import javafx.scene.control.ToggleButton;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
-import javafx.scene.layout.VBox;
 
 /**
  * One launcher card on the home screen (PLAN.md 4.6): a saved preset or the
  * "Quick start" shortcut. Starting is an explicit button rather than a
- * whole-card click handler, so it never fights with the pin/delete buttons
- * for the same mouse click.
+ * whole-card click handler, so it never fights with the pin/edit/delete
+ * buttons for the same mouse click.
  */
-public class PresetCard extends VBox {
-    private static final double CARD_WIDTH = 260;
-    private static final double CARD_HEIGHT = 190;
+public class PresetCard extends Card {
+    private static final double CARD_WIDTH = 300;
+    private static final double CARD_HEIGHT = 230;
 
     public PresetCard(String name, String summary, boolean pinned, Runnable onStart,
                        Runnable onTogglePin, Runnable onEdit, Runnable onDelete) {
-        getStyleClass().add("preset-card");
+        interactive();
         setPrefWidth(CARD_WIDTH);
         setMinWidth(CARD_WIDTH);
+        setMaxWidth(CARD_WIDTH);
         // Fixed, not content-derived, so every card in the row reports the same
         // preferred size to the FlowPane — names/summaries of different lengths
         // would otherwise make cards different heights. The summary label's
@@ -31,60 +32,45 @@ public class PresetCard extends VBox {
         // to the bottom edge consistently.
         setPrefHeight(CARD_HEIGHT);
         setMinHeight(CARD_HEIGHT);
-        setSpacing(8);
-        setPadding(new Insets(16));
+        setSpacing(10);
 
         Label nameLabel = new Label(name);
-        nameLabel.getStyleClass().add("preset-card-name");
+        nameLabel.getStyleClass().add("card-title");
         nameLabel.setWrapText(true);
+        HBox titleRow = new HBox(8, nameLabel, new Spacer());
+        titleRow.setAlignment(Pos.CENTER_LEFT);
+        if (pinned) titleRow.getChildren().add(new Chip("Pinned").neutral());
 
         Label summaryLabel = new Label(summary);
-        summaryLabel.getStyleClass().add("preset-card-summary");
+        summaryLabel.getStyleClass().add("card-description");
         summaryLabel.setWrapText(true);
         // A Label's own maxHeight defaults to its preferred height, which caps
         // vgrow at nothing to actually stretch into — without this, the VBox's
         // leftover space (from forcing a uniform card height above) goes
         // unclaimed at the bottom instead of pushing the button(s) down to it.
         summaryLabel.setMaxHeight(Double.MAX_VALUE);
-        VBox.setVgrow(summaryLabel, Priority.ALWAYS);
+        summaryLabel.setAlignment(Pos.TOP_LEFT);
+        setVgrow(summaryLabel, Priority.ALWAYS);
 
-        Button startButton = new Button("Start practice");
-        startButton.getStyleClass().add("primary-button");
-        startButton.setOnAction(e -> onStart.run());
-        startButton.setMaxWidth(Double.MAX_VALUE);
-
-        getChildren().addAll(nameLabel, summaryLabel, startButton);
+        AppButton startButton = AppButton.primary("Start practice", onStart).fill();
+        add(titleRow, summaryLabel, startButton);
 
         if (onTogglePin != null || onEdit != null || onDelete != null) {
-            HBox actions = new HBox(6);
+            HBox actions = new HBox(4);
             actions.setAlignment(Pos.CENTER_LEFT);
             if (onTogglePin != null) {
-                ToggleButton pinButton = new ToggleButton(pinned ? "Unpin" : "Pin");
-                pinButton.setSelected(pinned);
-                pinButton.setOnAction(e -> onTogglePin.run());
-                spanWidth(pinButton);
-                actions.getChildren().add(pinButton);
+                actions.getChildren().add(AppButton.ghost(pinned ? "Unpin" : "Pin", onTogglePin).small());
             }
             if (onEdit != null) {
-                Button editButton = new Button("Edit");
-                editButton.setOnAction(e -> onEdit.run());
-                spanWidth(editButton);
-                actions.getChildren().add(editButton);
+                actions.getChildren().add(AppButton.ghost("Edit", onEdit).small());
             }
+            actions.getChildren().add(new Spacer());
             if (onDelete != null) {
-                Button deleteButton = new Button("Delete");
-                deleteButton.getStyleClass().add("danger-button");
-                deleteButton.setOnAction(e -> onDelete.run());
-                spanWidth(deleteButton);
+                AppButton deleteButton = AppButton.ghost("Delete", onDelete).small();
+                deleteButton.getStyleClass().add("btn-ghost-danger");
                 actions.getChildren().add(deleteButton);
             }
-            getChildren().add(actions);
+            add(actions);
         }
-    }
-
-    /** Makes a button in the actions HBox claim an even share of the row instead of just its own text width. */
-    private void spanWidth(javafx.scene.layout.Region button) {
-        button.setMaxWidth(Double.MAX_VALUE);
-        HBox.setHgrow(button, Priority.ALWAYS);
     }
 }

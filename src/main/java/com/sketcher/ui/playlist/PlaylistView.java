@@ -6,6 +6,12 @@ import com.sketcher.model.Playlist;
 import com.sketcher.ui.common.AsyncTask;
 import com.sketcher.ui.common.Dialogs;
 import com.sketcher.ui.common.Refreshable;
+import com.sketcher.ui.components.AppButton;
+import com.sketcher.ui.components.Card;
+import com.sketcher.ui.components.EmptyState;
+import com.sketcher.ui.components.ImageTile;
+import com.sketcher.ui.components.Page;
+import com.sketcher.ui.components.Spacer;
 import com.sketcher.ui.gallery.ImageDetailView;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -15,12 +21,9 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
 import javafx.scene.control.ScrollPane;
-import javafx.scene.image.ImageView;
-import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
-import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 
@@ -36,15 +39,18 @@ import java.util.function.Consumer;
  * selected as the source, so timing/order/count can still be chosen there.
  */
 public class PlaylistView extends StackPane implements Refreshable {
-    private static final int TILE_SIZE = 190;
-    private static final int TILE_GAP = 10;
+    private static final int TILE_SIZE = 200;
+    private static final int TILE_GAP = 14;
 
     private final LibraryService library;
     private final Consumer<Integer> onStartPractice;
     private final ListView<Playlist> playlistList = new ListView<>();
     private final Label itemsHeading = new Label();
+    private final Label itemsCount = new Label();
     private final FlowPane itemsPane = new FlowPane(TILE_GAP, TILE_GAP);
-    private final Button startButton = new Button("Start practice");
+    private final AppButton startButton = AppButton.primary("Start practice", this::startPractice);
+    private final AppButton renameButton = AppButton.ghost("Rename", this::renamePlaylist).small();
+    private final AppButton deleteButton = AppButton.danger("Delete", this::deletePlaylist).small();
     private final ImageDetailView detailView;
 
     private Playlist currentPlaylist;
@@ -55,17 +61,9 @@ public class PlaylistView extends StackPane implements Refreshable {
         this.onStartPractice = onStartPractice;
         getStyleClass().add("playlist-view");
 
-        BorderPane mainPane = new BorderPane();
-
-        Button newButton = new Button("New playlist…");
-        newButton.setOnAction(e -> createPlaylist());
-        Button renameButton = new Button("Rename…");
-        renameButton.setOnAction(e -> renamePlaylist());
-        Button deleteButton = new Button("Delete");
-        deleteButton.getStyleClass().add("danger-button");
-        deleteButton.setOnAction(e -> deletePlaylist());
-        VBox leftToolbar = new VBox(8, newButton, renameButton, deleteButton);
-        leftToolbar.setPadding(new Insets(16, 16, 12, 16));
+        Page page = new Page("Playlists");
+        page.setSubtitle("Hand-picked sets of images. Add images from the Gallery's \"Add to playlist\" action.");
+        page.setActions(AppButton.secondary("New playlist…", this::createPlaylist));
 
         playlistList.setCellFactory(lv -> new ListCell<>() {
             @Override
@@ -75,41 +73,40 @@ public class PlaylistView extends StackPane implements Refreshable {
             }
         });
         playlistList.getSelectionModel().selectedItemProperty().addListener((o, a, b) -> loadItems(b));
-        playlistList.setPrefWidth(240);
+        playlistList.setPlaceholder(new EmptyState("No playlists", null));
         VBox.setVgrow(playlistList, Priority.ALWAYS);
+        Card listCard = new Card().flush().add(playlistList);
+        listCard.setPrefWidth(260);
+        listCard.setMinWidth(260);
 
-        VBox left = new VBox(leftToolbar, playlistList);
-        mainPane.setLeft(left);
-
-        itemsHeading.getStyleClass().add("home-title");
-        startButton.getStyleClass().add("primary-button");
+        itemsHeading.getStyleClass().add("card-title");
+        itemsHeading.setMinWidth(140);
+        itemsCount.getStyleClass().add("card-description");
         startButton.setDisable(true);
-        startButton.setOnAction(e -> startPractice());
-        HBox itemsTop = new HBox(16, itemsHeading, spacer(), startButton);
+        HBox itemsTop = new HBox(8, new VBox(2, itemsHeading, itemsCount), new Spacer(),
+                renameButton, deleteButton, startButton);
         itemsTop.setAlignment(Pos.CENTER_LEFT);
-        itemsTop.setPadding(new Insets(20, 20, 0, 20));
+        itemsTop.setPadding(new Insets(20, 24, 4, 24));
 
-        itemsPane.setPadding(new Insets(20));
+        itemsPane.setPadding(new Insets(16, 24, 24, 24));
         ScrollPane itemsScroll = new ScrollPane(itemsPane);
         itemsScroll.setFitToWidth(true);
+        itemsScroll.getStyleClass().add("page-scroll");
         VBox.setVgrow(itemsScroll, Priority.ALWAYS);
+        Card itemsCard = new Card().flush().add(itemsTop, itemsScroll);
+        itemsCard.setSpacing(0);
+        HBox.setHgrow(itemsCard, Priority.ALWAYS);
 
-        VBox center = new VBox(12, itemsTop, itemsScroll);
-        mainPane.setCenter(center);
+        HBox body = new HBox(20, listCard, itemsCard);
+        page.setBody(body);
 
         detailView = new ImageDetailView(library, this::closeDetail, () -> loadItems(currentPlaylist));
 
-        getChildren().addAll(mainPane, detailView);
+        getChildren().addAll(page, detailView);
         detailView.setVisible(false);
         detailView.setManaged(false);
 
         refresh();
-    }
-
-    private Region spacer() {
-        Region r = new Region();
-        HBox.setHgrow(r, Priority.ALWAYS);
-        return r;
     }
 
     @Override
@@ -139,16 +136,19 @@ public class PlaylistView extends StackPane implements Refreshable {
     private void loadItems(Playlist playlist) {
         currentPlaylist = playlist;
         closeDetail();
-        if (playlist == null) {
-            itemsHeading.setText("");
+        boolean hasPlaylist = playlist != null;
+        renameButton.setDisable(!hasPlaylist);
+        deleteButton.setDisable(!hasPlaylist);
+        if (!hasPlaylist) {
+            itemsHeading.setText("No playlist selected");
+            itemsCount.setText("");
             startButton.setDisable(true);
-            itemsPane.getChildren().clear();
-            Label empty = new Label("No playlists yet. Create one to start collecting images.");
-            empty.getStyleClass().add("hint-label");
-            itemsPane.getChildren().add(empty);
+            itemsPane.getChildren().setAll(emptyState("No playlists yet",
+                    "Create one to start collecting images for a focused practice session."));
             return;
         }
         itemsHeading.setText(playlist.name());
+        itemsCount.setText("");
         AsyncTask.runDb(
                 () -> {
                     List<Integer> ids = library.playlists().listImageIds(playlist.id(), false);
@@ -157,16 +157,12 @@ public class PlaylistView extends StackPane implements Refreshable {
                 },
                 records -> {
                     currentRecords = records;
-                    itemsHeading.setText(playlist.name() + "  ·  " + records.size()
-                            + (records.size() == 1 ? " image" : " images"));
+                    itemsCount.setText(records.size() + (records.size() == 1 ? " image" : " images"));
                     startButton.setDisable(records.isEmpty());
                     itemsPane.getChildren().clear();
                     if (records.isEmpty()) {
-                        Label empty = new Label(
-                                "No images in this playlist yet. Add some from the Gallery's \"Add to playlist\" action.");
-                        empty.getStyleClass().add("hint-label");
-                        empty.setWrapText(true);
-                        itemsPane.getChildren().add(empty);
+                        itemsPane.getChildren().add(emptyState("This playlist is empty",
+                                "Select images in the Gallery and use \"Add to playlist\"."));
                         return;
                     }
                     for (int i = 0; i < records.size(); i++) {
@@ -176,12 +172,14 @@ public class PlaylistView extends StackPane implements Refreshable {
                 err -> Dialogs.error("Could not load playlist images", err.getMessage()));
     }
 
-    private Node buildTile(Playlist playlist, ImageRecord record, int index) {
-        ImageView imageView = new ImageView(library.thumbnails().load(library.ref(), record.hash()));
-        imageView.setFitWidth(TILE_SIZE - 12);
-        imageView.setFitHeight(TILE_SIZE - 12);
-        imageView.setPreserveRatio(true);
+    /** EmptyState sized to span the whole FlowPane so it centers instead of hugging the left edge. */
+    private EmptyState emptyState(String title, String message) {
+        EmptyState empty = new EmptyState(title, message);
+        empty.prefWidthProperty().bind(itemsPane.widthProperty().subtract(48));
+        return empty;
+    }
 
+    private Node buildTile(Playlist playlist, ImageRecord record, int index) {
         Button removeButton = new Button("✕");
         removeButton.getStyleClass().add("tile-remove-button");
         removeButton.setOnAction(e -> {
@@ -189,11 +187,11 @@ public class PlaylistView extends StackPane implements Refreshable {
             loadItems(playlist);
         });
 
-        StackPane tile = new StackPane(imageView, removeButton);
-        StackPane.setAlignment(removeButton, Pos.TOP_RIGHT);
-        StackPane.setMargin(removeButton, new Insets(8));
-        tile.getStyleClass().add("gallery-tile");
-        tile.setPrefSize(TILE_SIZE, TILE_SIZE);
+        removeButton.setTooltip(new javafx.scene.control.Tooltip("Remove from playlist"));
+
+        ImageTile tile = new ImageTile(library.thumbnails().load(library.ref(), record.hash()), TILE_SIZE)
+                .favorite(record.favorite())
+                .overlay(removeButton, Pos.TOP_LEFT);
         tile.setOnMouseClicked(e -> {
             if (e.getClickCount() == 2) openDetail(index);
         });

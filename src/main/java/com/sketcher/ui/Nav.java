@@ -1,13 +1,16 @@
 package com.sketcher.ui;
 
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
+import javafx.scene.shape.Circle;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -25,12 +28,17 @@ public class Nav extends VBox {
 
     public Nav() {
         getStyleClass().add("nav");
-        setSpacing(3);
-        setPadding(new Insets(16, 10, 16, 10));
+        setSpacing(4);
+        setPadding(new Insets(28, 14, 20, 14));
 
+        Circle mark = new Circle(7);
+        mark.getStyleClass().add("nav-mark");
         Label title = new Label("Sketcher");
         title.getStyleClass().add("nav-title");
-        getChildren().add(title);
+        HBox brand = new HBox(12, mark, title);
+        brand.setAlignment(Pos.CENTER_LEFT);
+        brand.setPadding(new Insets(0, 16, 28, 16));
+        getChildren().add(brand);
 
         VBox.setVgrow(spacer, Priority.ALWAYS);
         getChildren().add(spacer);

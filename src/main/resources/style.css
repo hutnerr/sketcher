@@ -2,144 +2,201 @@
  * Base stylesheet: structure, spacing, typography, and the full light
  * palette, expressed as looked-up color tokens on .root. style-dark.css
  * redefines only the token block to repaint everything for dark mode.
+ *
+ * Rules are grouped by component (see com.sketcher.ui.components): Page,
+ * Card, FormRow, AppButton, SegmentedControl, Toolbar, Chip, EmptyState,
+ * ImageTile. Screens should compose those rather than add one-off rules here.
+ *
+ * Neutrals are deliberately near-gray (no blue/brown cast) so the app chrome
+ * never skews how colors in a reference image are perceived.
  */
 
 .root {
-    -bg-app:             #f6f7f8;
+    -bg-app:             #f6f6f4;
     -bg-surface:         #ffffff;
-    -bg-surface-alt:      #f0f1f3;
-    -bg-surface-hover:    #eceef1;
-    -border-subtle:       #e4e6ea;
-    -border-strong:       #d4d7dc;
-    -text-primary:        #17191c;
-    -text-secondary:      #62666f;
-    -text-tertiary:       #8b8f98;
-    -accent:              #0ea5a3;
-    -accent-hover:        #0c8d8b;
-    -accent-pressed:      #0a7674;
-    -accent-soft:         #e3f6f5;
-    -accent-soft-border:  #bfe9e7;
+    -bg-surface-alt:      #f0f0ed;
+    -bg-surface-hover:    #e9e9e6;
+    -border-subtle:       #e6e6e2;
+    -border-strong:       #d4d4cf;
+    -text-primary:        #1b1b1a;
+    -text-secondary:      #62625e;
+    -text-tertiary:       #93938e;
+    -accent:              #0d9488;
+    -accent-hover:        #0f7f75;
+    -accent-pressed:      #0f6b63;
+    -accent-soft:         #e5f3f1;
+    -accent-soft-border:  #bfe3de;
     -accent-contrast:     #ffffff;
-    -danger:              #dc3b4b;
-    -danger-hover:        #c22e3d;
-    -danger-soft:         #fdedef;
-    -danger-soft-border:  #f6c9ce;
-    -warning:             #e8a53d;
-    -nav-bg:              #1b1e23;
-    -nav-text:            #9aa0ab;
-    -nav-text-selected:   #ffffff;
-    -nav-hover-bg:        rgba(255,255,255,0.06);
-    -image-area-bg:       #15171a;
-    -shadow-soft:         rgba(16,18,22,0.07);
-    -shadow-strong:       rgba(16,18,22,0.14);
+    -danger:              #d33a4a;
+    -danger-hover:        #b92e3d;
+    -danger-soft:         #fcedee;
+    -danger-soft-border:  #f3c7cc;
+    -warning:             #e9a93b;
+    -nav-bg:              #fbfbfa;
+    -nav-text:            #62625e;
+    -nav-text-selected:   #1b1b1a;
+    -nav-hover-bg:        #f0f0ed;
+    -nav-selected-bg:     #ebebe7;
+    -image-area-bg:       #1d1d1d;
+    -overlay-bg:          rgba(18,18,18,0.72);
+    -shadow-soft:         rgba(20,20,18,0.06);
+    -shadow-strong:       rgba(20,20,18,0.13);
 
     -fx-font-family: "Inter", "Segoe UI", "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
-    -fx-font-size: 15px;
+    -fx-font-size: 16px;
     -fx-text-fill: -text-primary;
     -fx-background-color: -bg-app;
+    -fx-focus-color: -accent;
+    -fx-faint-focus-color: transparent;
+    -fx-accent: -accent;
 }
 
 .shell {
     -fx-background-color: -bg-app;
 }
 
+/* ---------- Typography ---------- */
+
 .label {
     -fx-text-fill: -text-primary;
-    -fx-font-size: 15px;
+    -fx-font-size: 16px;
 }
 
 .hint-label {
     -fx-text-fill: -text-tertiary;
-    -fx-font-size: 14px;
+    -fx-font-size: 14.5px;
 }
 
-.help-heading {
+.muted-label {
+    -fx-text-fill: -text-secondary;
+}
+
+.section-title {
     -fx-font-size: 18px;
     -fx-font-weight: 600;
-    -fx-text-fill: -text-primary;
 }
 
-.home-title {
-    -fx-font-size: 30px;
+.body-text {
+    -fx-text-fill: -text-secondary;
+    -fx-font-size: 15.5px;
+    -fx-line-spacing: 3px;
+}
+
+/* ---------- Page ---------- */
+
+.page {
+    -fx-background-color: -bg-app;
+}
+
+.page-title {
+    -fx-font-size: 32px;
     -fx-font-weight: 700;
     -fx-text-fill: -text-primary;
 }
 
-.detail-name {
-    -fx-font-size: 19px;
+.page-subtitle {
+    -fx-font-size: 15.5px;
+    -fx-text-fill: -text-secondary;
+}
+
+.page-scroll, .page-scroll > .viewport {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+}
+
+/* ---------- Card ---------- */
+
+.card {
+    -fx-background-color: -bg-surface;
+    -fx-background-radius: 14;
+    -fx-border-color: -border-subtle;
+    -fx-border-radius: 14;
+    -fx-border-width: 1;
+    -fx-effect: dropshadow(gaussian, -shadow-soft, 12, 0, 0, 2);
+}
+
+.card-title {
+    -fx-font-size: 18px;
     -fx-font-weight: 600;
 }
 
-.overlay-label {
-    -fx-font-size: 17px;
-    -fx-font-weight: 600;
-    -fx-text-fill: -accent;
+.card-description {
+    -fx-font-size: 14.5px;
+    -fx-text-fill: -text-secondary;
 }
 
-/* ---------- Structural surfaces ---------- */
-
-.toolbar {
-    -fx-background-color: -bg-surface;
-    -fx-border-color: transparent transparent -border-subtle transparent;
-    -fx-border-width: 0 0 1 0;
+.card-interactive {
+    -fx-cursor: hand;
 }
 
-.controls {
-    -fx-background-color: -bg-surface;
-    -fx-border-color: -border-subtle transparent transparent transparent;
-    -fx-border-width: 1 0 0 0;
+.card-interactive:hover {
+    -fx-border-color: -border-strong;
+    -fx-effect: dropshadow(gaussian, -shadow-strong, 20, 0, 0, 5);
 }
 
-.filter-bar {
-    -fx-background-color: -bg-surface;
-    -fx-border-color: transparent transparent -border-subtle transparent;
-    -fx-border-width: 0 0 1 0;
-    -fx-background-radius: 0;
+.card-accent {
+    -fx-background-color: -accent-soft;
+    -fx-border-color: -accent-soft-border;
 }
 
-.hud {
-    -fx-background-color: -bg-surface;
-    -fx-border-color: -border-subtle transparent transparent transparent;
-    -fx-border-width: 1 0 0 0;
+/* Lists/trees/tables inside a flush card draw on the card's own surface. */
+.card-flush .list-view, .card-flush .tree-view {
+    -fx-background-color: transparent;
 }
 
-.image-area {
-    -fx-background-color: -image-area-bg;
+.card-flush .list-view, .card-flush .tree-view, .card-flush .table-view {
+    -fx-background-radius: 14;
+    -fx-border-width: 0;
+    -fx-padding: 6;
 }
 
-.image-detail-view {
-    -fx-background-color: -image-area-bg;
-}
+/* ---------- FormRow ---------- */
 
-.home-view, .help-view, .settings-view, .tag-manager-view, .import-view {
-    -fx-background-color: -bg-app;
+.form-label {
+    -fx-text-fill: -text-secondary;
+    -fx-font-weight: 500;
 }
 
 /* ---------- Navigation ---------- */
 
 .nav {
     -fx-background-color: -nav-bg;
-    -fx-min-width: 224px;
-    -fx-pref-width: 224px;
+    -fx-border-color: transparent -border-subtle transparent transparent;
+    -fx-border-width: 0 1 0 0;
+    -fx-min-width: 248px;
+    -fx-pref-width: 248px;
 }
 
 .nav-title {
-    -fx-text-fill: -nav-text-selected;
-    -fx-font-size: 20px;
+    -fx-text-fill: -text-primary;
+    -fx-font-size: 22px;
     -fx-font-weight: 700;
-    -fx-padding: 4 8 20 8;
+}
+
+.nav-mark {
+    -fx-fill: -accent;
+}
+
+.nav-section-label {
+    -fx-text-fill: -text-tertiary;
+    -fx-font-size: 13px;
+    -fx-font-weight: 600;
+    -fx-padding: 0 16 6 16;
 }
 
 .nav .nav-item {
     -fx-background-color: transparent;
+    -fx-background-insets: 0;
     -fx-text-fill: -nav-text;
     -fx-border-width: 0;
-    -fx-background-radius: 7;
+    -fx-background-radius: 10;
     -fx-alignment: CENTER_LEFT;
-    -fx-padding: 11 14 11 14;
-    -fx-font-size: 15.5px;
+    -fx-padding: 12 16 12 16;
+    -fx-font-size: 16px;
     -fx-font-weight: 500;
     -fx-cursor: hand;
+    -fx-effect: null;
 }
 
 .nav .nav-item:hover {
@@ -148,33 +205,33 @@
 }
 
 .nav .nav-item:selected {
-    -fx-background-color: -accent;
-    -fx-text-fill: -accent-contrast;
+    -fx-background-color: -nav-selected-bg;
+    -fx-text-fill: -nav-text-selected;
+    -fx-font-weight: 600;
 }
 
-/* ---------- Buttons ---------- */
+/* ---------- AppButton ---------- */
 
+/* Base .button doubles as AppButton SECONDARY, so dialog buttons and any
+   plain Button stay on-system. */
 .button, .toggle-button {
     -fx-background-color: -bg-surface;
+    -fx-background-insets: 0;
     -fx-border-color: -border-strong;
     -fx-border-width: 1;
-    -fx-border-radius: 8;
-    -fx-background-radius: 8;
-    -fx-padding: 10 18 10 18;
+    -fx-border-radius: 10;
+    -fx-background-radius: 10;
+    -fx-padding: 10 20 10 20;
+    -fx-min-height: 44px;
     -fx-text-fill: -text-primary;
-    -fx-font-size: 15px;
+    -fx-font-size: 15.5px;
     -fx-font-weight: 500;
     -fx-cursor: hand;
-    /* Stretch to fill whatever width the layout actually gives us (a VBox's
-       default fillWidth) instead of shrink-wrapping the label. In an HBox
-       this is a no-op unless the container also grants hgrow, so toolbar
-       rows of buttons are unaffected. */
-    -fx-max-width: infinity;
+    -fx-effect: dropshadow(gaussian, -shadow-soft, 3, 0, 0, 1);
 }
 
 .button:hover, .toggle-button:hover {
     -fx-background-color: -bg-surface-hover;
-    -fx-border-color: -border-strong;
 }
 
 .button:pressed, .button:armed,
@@ -182,12 +239,12 @@
     -fx-background-color: -bg-surface-alt;
 }
 
-.button:focused, .toggle-button:focused {
+.button:focus-visible, .toggle-button:focus-visible {
     -fx-border-color: -accent;
 }
 
 .button:disabled, .toggle-button:disabled {
-    -fx-opacity: 0.5;
+    -fx-opacity: 0.45;
 }
 
 .toggle-button:selected {
@@ -196,114 +253,268 @@
     -fx-text-fill: -accent-pressed;
 }
 
-.primary-button {
+.btn-primary, .dialog-pane .button:default {
     -fx-background-color: -accent;
     -fx-border-color: -accent;
     -fx-text-fill: -accent-contrast;
     -fx-font-weight: 600;
 }
 
-.primary-button:hover {
+.btn-primary:hover, .dialog-pane .button:default:hover {
     -fx-background-color: -accent-hover;
     -fx-border-color: -accent-hover;
 }
 
-.primary-button:pressed, .primary-button:armed {
+.btn-primary:pressed, .btn-primary:armed {
     -fx-background-color: -accent-pressed;
     -fx-border-color: -accent-pressed;
 }
 
-.danger-button {
+.btn-primary:focus-visible {
+    -fx-border-color: -accent-pressed;
+}
+
+.btn-ghost {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-text-fill: -text-secondary;
+    -fx-effect: null;
+}
+
+.btn-ghost:hover {
+    -fx-background-color: -bg-surface-hover;
+    -fx-text-fill: -text-primary;
+}
+
+.btn-ghost:pressed, .btn-ghost:armed {
+    -fx-background-color: -bg-surface-alt;
+}
+
+.toggle-button.btn-ghost:selected {
+    -fx-background-color: -accent-soft;
+    -fx-border-color: transparent;
+    -fx-text-fill: -accent-pressed;
+}
+
+.btn-danger {
     -fx-background-color: -bg-surface;
     -fx-text-fill: -danger;
     -fx-border-color: -danger-soft-border;
 }
 
-.danger-button:hover {
+.btn-danger:hover {
     -fx-background-color: -danger-soft;
     -fx-border-color: -danger-soft-border;
+}
+
+.btn-sm {
+    -fx-padding: 7 14 7 14;
+    -fx-min-height: 38px;
+    -fx-font-size: 15px;
+    -fx-background-radius: 9;
+    -fx-border-radius: 9;
+}
+
+.btn-icon {
+    -fx-padding: 0;
+    -fx-min-width: 38px;
+    -fx-min-height: 38px;
+    -fx-pref-width: 38px;
+    -fx-pref-height: 38px;
+    -fx-max-width: 38px;
+    -fx-max-height: 38px;
+    -fx-font-size: 15px;
+    -fx-alignment: CENTER;
+}
+
+/* ---------- SegmentedControl ---------- */
+
+.segmented {
+    -fx-background-color: -bg-surface-alt;
+    -fx-background-radius: 11;
+    -fx-border-color: -border-subtle;
+    -fx-border-radius: 11;
+    -fx-border-width: 1;
+    -fx-padding: 3;
+    -fx-spacing: 2;
+}
+
+.segmented .segment {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-background-radius: 8;
+    -fx-border-radius: 8;
+    -fx-padding: 7 18 7 18;
+    -fx-min-height: 36px;
+    -fx-text-fill: -text-secondary;
+    -fx-font-size: 15px;
+    -fx-font-weight: 500;
+    -fx-effect: null;
+}
+
+.segmented .segment:hover {
+    -fx-text-fill: -text-primary;
+    -fx-background-color: -bg-surface-hover;
+}
+
+.segmented .segment:selected {
+    -fx-background-color: -bg-surface;
+    -fx-border-color: -border-subtle;
+    -fx-text-fill: -text-primary;
+    -fx-font-weight: 600;
+    -fx-effect: dropshadow(gaussian, -shadow-strong, 4, 0, 0, 1);
+}
+
+/* ---------- Toolbar ---------- */
+
+.app-toolbar {
+    -fx-background-color: -bg-surface;
+    -fx-border-color: transparent transparent -border-subtle transparent;
+    -fx-border-width: 0 0 1 0;
+}
+
+.app-toolbar-plain {
+    -fx-background-color: transparent;
+    -fx-border-width: 0;
+}
+
+.app-toolbar.bottom {
+    -fx-border-color: -border-subtle transparent transparent transparent;
+    -fx-border-width: 1 0 0 0;
+}
+
+.toolbar-divider {
+    -fx-background-color: -border-subtle;
+    -fx-min-width: 1px;
+    -fx-pref-width: 1px;
+    -fx-max-width: 1px;
+    -fx-pref-height: 24px;
+    -fx-max-height: 24px;
 }
 
 /* ---------- Form controls ---------- */
 
 .text-field, .text-area, .combo-box, .choice-box, .date-picker {
     -fx-background-color: -bg-surface;
+    -fx-background-insets: 0;
     -fx-text-fill: -text-primary;
     -fx-border-color: -border-strong;
     -fx-border-width: 1;
-    -fx-border-radius: 8;
-    -fx-background-radius: 8;
-    -fx-padding: 8 12 8 12;
-    -fx-font-size: 15px;
+    -fx-border-radius: 10;
+    -fx-background-radius: 10;
+    -fx-padding: 9 14 9 14;
+    -fx-min-height: 44px;
+    -fx-font-size: 15.5px;
     -fx-prompt-text-fill: -text-tertiary;
+    -fx-highlight-fill: -accent-soft-border;
+    -fx-highlight-text-fill: -text-primary;
+}
+
+.choice-box, .combo-box {
+    -fx-padding: 6 10 6 12;
+    -fx-cursor: hand;
+}
+
+.choice-box > .open-button {
+    -fx-padding: 0 2 0 14;
+}
+
+.choice-box:hover, .combo-box:hover {
+    -fx-background-color: -bg-surface-hover;
 }
 
 .text-area .content {
     -fx-background-color: -bg-surface;
-    -fx-background-radius: 8;
+    -fx-background-radius: 10;
 }
 
 .text-field:focused, .text-area:focused, .combo-box:focused, .choice-box:focused {
     -fx-border-color: -accent;
 }
 
-.combo-box .list-cell, .choice-box .label {
+.choice-box > .open-button > .arrow, .combo-box > .arrow-button > .arrow {
+    -fx-background-color: -text-secondary;
+}
+
+.combo-box > .arrow-button {
+    -fx-background-color: transparent;
+}
+
+.combo-box .list-cell, .choice-box > .label {
     -fx-text-fill: -text-primary;
     -fx-background-color: transparent;
-    -fx-padding: 2 4 2 4;
+    -fx-padding: 2 6 2 2;
 }
 
 .combo-box-popup .list-view, .context-menu {
     -fx-background-color: -bg-surface;
+    -fx-background-insets: 0;
     -fx-border-color: -border-subtle;
     -fx-border-width: 1;
-    -fx-background-radius: 8;
-    -fx-border-radius: 8;
-    -fx-effect: dropshadow(gaussian, -shadow-strong, 14, 0, 0, 4);
+    -fx-background-radius: 10;
+    -fx-border-radius: 10;
+    -fx-padding: 5;
+    -fx-effect: dropshadow(gaussian, -shadow-strong, 18, 0, 0, 6);
 }
 
 .combo-box-popup .list-view .list-cell {
     -fx-background-color: transparent;
     -fx-text-fill: -text-primary;
-    -fx-padding: 6 10 6 10;
+    -fx-padding: 8 12 8 12;
+    -fx-background-radius: 7;
 }
 
 .combo-box-popup .list-view .list-cell:filled:hover,
 .combo-box-popup .list-view .list-cell:filled:selected {
-    -fx-background-color: -accent-soft;
-    -fx-text-fill: -accent-pressed;
+    -fx-background-color: -bg-surface-hover;
+    -fx-text-fill: -text-primary;
 }
 
 .menu-item {
-    -fx-padding: 6 12 6 12;
+    -fx-padding: 8 14 8 14;
+    -fx-background-radius: 7;
 }
 
 .menu-item .label {
     -fx-text-fill: -text-primary;
-    -fx-font-size: 15px;
+    -fx-font-size: 15.5px;
 }
 
 .menu-item:focused, .menu-item:hover {
-    -fx-background-color: -accent-soft;
+    -fx-background-color: -bg-surface-hover;
 }
 
 .menu-item:focused .label, .menu-item:hover .label {
-    -fx-text-fill: -accent-pressed;
+    -fx-text-fill: -text-primary;
+}
+
+.radio-menu-item:checked .label {
+    -fx-font-weight: 600;
+}
+
+.radio-menu-item:checked > .left-container > .radio {
+    -fx-background-color: -accent;
 }
 
 .check-box, .radio-button {
     -fx-text-fill: -text-primary;
-    -fx-font-size: 15px;
+    -fx-font-size: 15.5px;
     -fx-cursor: hand;
+    -fx-label-padding: 0 0 0 10;
 }
 
 .check-box .box {
     -fx-background-color: -bg-surface;
+    -fx-background-insets: 0;
     -fx-border-color: -border-strong;
     -fx-border-width: 1.5;
-    -fx-border-radius: 5;
-    -fx-background-radius: 5;
-    -fx-padding: 2;
+    -fx-border-radius: 6;
+    -fx-background-radius: 6;
+    -fx-padding: 4;
+}
+
+.check-box:hover .box {
+    -fx-border-color: -text-tertiary;
 }
 
 .check-box:selected .box {
@@ -315,18 +526,24 @@
     -fx-background-color: -accent-contrast;
 }
 
+.check-box:focus-visible .box {
+    -fx-border-color: -accent;
+}
+
 .radio-button .radio {
     -fx-background-color: -bg-surface;
+    -fx-background-insets: 0;
     -fx-border-color: -border-strong;
     -fx-border-width: 1.5;
     -fx-border-radius: 100;
     -fx-background-radius: 100;
-    -fx-padding: 4;
+    -fx-padding: 5;
 }
 
 .radio-button:selected .radio .dot {
     -fx-background-color: -accent;
-    -fx-padding: 3.5;
+    -fx-background-insets: 0;
+    -fx-padding: 4;
 }
 
 .radio-button:selected .radio {
@@ -338,6 +555,7 @@
     -fx-border-color: transparent;
     -fx-underline: false;
     -fx-padding: 2 0 2 0;
+    -fx-font-size: 15.5px;
 }
 
 .hyperlink:hover, .hyperlink:visited:hover {
@@ -351,12 +569,14 @@
 
 .progress-bar > .track {
     -fx-background-color: -bg-surface-alt;
-    -fx-background-radius: 6;
+    -fx-background-insets: 0;
+    -fx-background-radius: 99;
 }
 
 .progress-bar > .bar {
     -fx-background-color: -accent;
-    -fx-background-radius: 6;
+    -fx-background-insets: 0;
+    -fx-background-radius: 99;
     -fx-padding: 4;
 }
 
@@ -364,17 +584,33 @@
     -fx-border-color: -border-subtle;
 }
 
+.tooltip {
+    -fx-background-color: -overlay-bg;
+    -fx-background-radius: 8;
+    -fx-text-fill: #ffffff;
+    -fx-font-size: 14px;
+    -fx-padding: 6 10 6 10;
+    -fx-effect: null;
+}
+
 /* ---------- Lists / Tables / Trees ---------- */
 
 .list-view, .tree-view, .scroll-pane, .scroll-pane > .viewport {
-    -fx-background-color: -bg-app;
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
     -fx-border-color: transparent;
+}
+
+.list-view, .tree-view {
+    -fx-padding: 0;
 }
 
 .list-view .list-cell, .tree-view .tree-cell {
     -fx-background-color: transparent;
     -fx-text-fill: -text-primary;
-    -fx-padding: 6 8 6 8;
+    -fx-padding: 10 14 10 14;
+    -fx-background-radius: 8;
+    -fx-font-size: 15.5px;
 }
 
 .list-view .list-cell:filled:hover, .tree-view .tree-cell:filled:hover {
@@ -384,6 +620,14 @@
 .list-view .list-cell:filled:selected, .tree-view .tree-cell:filled:selected {
     -fx-background-color: -accent-soft;
     -fx-text-fill: -accent-pressed;
+}
+
+.tree-cell > .tree-disclosure-node > .arrow {
+    -fx-background-color: -text-tertiary;
+}
+
+.tree-cell > .tree-disclosure-node {
+    -fx-padding: 6 8 6 4;
 }
 
 .gallery-grid-list,
@@ -401,38 +645,46 @@
 
 .table-view {
     -fx-background-color: -bg-surface;
+    -fx-background-insets: 0;
     -fx-border-color: -border-subtle;
     -fx-border-width: 1;
-    -fx-background-radius: 8;
-    -fx-border-radius: 8;
+    -fx-background-radius: 14;
+    -fx-border-radius: 14;
+    -fx-padding: 0;
 }
 
 .table-view .column-header-background {
-    -fx-background-color: -bg-surface-alt;
-    -fx-background-radius: 8 8 0 0;
+    -fx-background-color: -bg-surface;
+    -fx-background-radius: 14 14 0 0;
+    -fx-border-color: transparent transparent -border-subtle transparent;
+    -fx-border-width: 0 0 1 0;
 }
 
 .table-view .column-header, .table-view .filler {
     -fx-background-color: transparent;
-    -fx-border-color: transparent -border-subtle transparent transparent;
-    -fx-size: 36px;
+    -fx-border-color: transparent;
+    -fx-size: 44px;
 }
 
 .table-view .column-header .label {
-    -fx-text-fill: -text-secondary;
-    -fx-font-size: 13px;
+    -fx-text-fill: -text-tertiary;
+    -fx-font-size: 13.5px;
     -fx-font-weight: 600;
+    -fx-alignment: CENTER_LEFT;
+    -fx-padding: 0 12 0 12;
+}
+
+.table-view .placeholder .label {
+    -fx-text-fill: -text-tertiary;
 }
 
 .table-row-cell {
     -fx-background-color: -bg-surface;
+    -fx-background-insets: 0;
     -fx-text-fill: -text-primary;
     -fx-border-color: transparent transparent -border-subtle transparent;
     -fx-table-cell-border-color: transparent;
-}
-
-.table-row-cell:odd {
-    -fx-background-color: -bg-surface-alt;
+    -fx-cell-size: 48px;
 }
 
 .table-row-cell:filled:hover {
@@ -450,7 +702,8 @@
 .table-cell {
     -fx-text-fill: -text-primary;
     -fx-alignment: CENTER_LEFT;
-    -fx-padding: 6 10 6 10;
+    -fx-padding: 6 12 6 12;
+    -fx-font-size: 15px;
 }
 
 .scroll-bar {
@@ -463,7 +716,8 @@
 
 .scroll-bar .thumb {
     -fx-background-color: -border-strong;
-    -fx-background-radius: 6;
+    -fx-background-radius: 99;
+    -fx-background-insets: 2;
 }
 
 .scroll-bar .thumb:hover {
@@ -475,150 +729,258 @@
     -fx-padding: 0;
 }
 
+.scroll-bar .increment-arrow, .scroll-bar .decrement-arrow {
+    -fx-padding: 0;
+    -fx-shape: null;
+}
+
 /* ---------- Dialogs / Alerts (owner-window popups) ---------- */
 
 .dialog-pane {
     -fx-background-color: -bg-surface;
     -fx-font-family: "Inter", "Segoe UI", "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+    -fx-font-size: 16px;
+    -fx-padding: 8 8 4 8;
+}
+
+.dialog-pane > .content {
+    -fx-padding: 20 20 8 20;
 }
 
 .dialog-pane > *.button-bar > *.container {
-    -fx-padding: 12 4 2 4;
+    -fx-padding: 16 20 16 20;
 }
 
 .dialog-pane .content.label {
     -fx-text-fill: -text-primary;
-    -fx-font-size: 15px;
+    -fx-font-size: 16px;
+    -fx-line-spacing: 3px;
 }
 
 .dialog-pane:header *.header-panel {
-    -fx-background-color: -bg-surface-alt;
-    -fx-padding: 18 22 18 22;
+    -fx-background-color: -bg-surface;
+    -fx-padding: 20 24 8 24;
 }
 
 .dialog-pane:header *.header-panel .label {
-    -fx-font-size: 17px;
+    -fx-font-size: 18px;
     -fx-font-weight: 600;
     -fx-text-fill: -text-primary;
 }
 
-/* ---------- Gallery ---------- */
+/* ---------- Chip ---------- */
 
-.gallery-tile {
-    -fx-background-color: -bg-surface;
-    -fx-border-color: -border-subtle;
-    -fx-border-width: 2;
-    -fx-border-radius: 8;
-    -fx-background-radius: 8;
-    -fx-cursor: hand;
-}
-
-.gallery-tile:hover {
-    -fx-border-color: -border-strong;
-}
-
-.gallery-tile.selected {
-    -fx-border-color: -accent;
-}
-
-.favorite-mark {
-    -fx-text-fill: -warning;
-    -fx-font-size: 20px;
-    -fx-padding: 5;
-    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.45), 2, 0.6, 0, 0);
-}
-
-.tag-chip {
+.chip {
     -fx-background-color: -accent-soft;
-    -fx-background-radius: 999;
-    -fx-border-radius: 999;
+    -fx-background-radius: 99;
+    -fx-border-radius: 99;
     -fx-border-color: -accent-soft-border;
     -fx-border-width: 1;
+    -fx-padding: 4 12 4 12;
 }
 
-.tag-chip .label {
+.chip-label {
     -fx-text-fill: -accent-pressed;
-    -fx-font-size: 14px;
+    -fx-font-size: 14.5px;
     -fx-font-weight: 500;
 }
 
-.tag-chip-remove {
-    -fx-background-color: transparent;
-    -fx-border-width: 0;
-    -fx-padding: 0 2 0 2;
-    -fx-font-size: 12px;
-    -fx-text-fill: -accent-pressed;
+.chip-neutral {
+    -fx-background-color: -bg-surface-alt;
+    -fx-border-color: -border-subtle;
 }
 
-/* Small circular overlay button (e.g. "remove from playlist") that sits on
-   top of a thumbnail — needs its own backing since it has to stay legible
-   over any image, not just the app's own surface colors. */
+.chip-neutral .chip-label {
+    -fx-text-fill: -text-secondary;
+}
+
+.chip-remove {
+    -fx-background-color: transparent;
+    -fx-border-width: 0;
+    -fx-padding: 0 0 0 2;
+    -fx-min-height: 0;
+    -fx-font-size: 11px;
+    -fx-text-fill: -accent-pressed;
+    -fx-opacity: 0.7;
+    -fx-effect: null;
+}
+
+.chip-remove:hover {
+    -fx-background-color: transparent;
+    -fx-opacity: 1;
+}
+
+/* ---------- EmptyState ---------- */
+
+.empty-state-title {
+    -fx-font-size: 18px;
+    -fx-font-weight: 600;
+    -fx-text-fill: -text-primary;
+}
+
+.empty-state-message {
+    -fx-font-size: 15px;
+    -fx-text-fill: -text-tertiary;
+}
+
+/* ---------- ImageTile ---------- */
+
+.image-tile {
+    -fx-background-color: -bg-surface;
+    -fx-background-radius: 14;
+    -fx-border-color: -border-subtle;
+    -fx-border-width: 1;
+    -fx-border-radius: 14;
+    -fx-cursor: hand;
+}
+
+.image-tile:hover {
+    -fx-border-color: -border-strong;
+    -fx-effect: dropshadow(gaussian, -shadow-strong, 14, 0, 0, 3);
+}
+
+.image-tile.selected {
+    -fx-border-color: -accent;
+    -fx-border-width: 2.5;
+    -fx-background-color: -accent-soft;
+}
+
+.image-tile-badge {
+    -fx-background-color: -overlay-bg;
+    -fx-background-radius: 99;
+    -fx-text-fill: -warning;
+    -fx-font-size: 14px;
+    -fx-min-width: 28px;
+    -fx-min-height: 28px;
+    -fx-alignment: CENTER;
+}
+
+/* Circular overlay button that sits on top of a thumbnail — needs its own
+   backing so it stays legible over any image, not just app surfaces. */
 .tile-remove-button {
-    -fx-background-color: rgba(10, 12, 15, 0.62);
+    -fx-background-color: -overlay-bg;
     -fx-text-fill: #ffffff;
     -fx-border-width: 0;
-    -fx-background-radius: 999;
+    -fx-background-radius: 99;
     -fx-min-width: 30px;
     -fx-min-height: 30px;
     -fx-max-width: 30px;
     -fx-max-height: 30px;
     -fx-padding: 0;
-    -fx-font-size: 14px;
+    -fx-font-size: 13px;
     -fx-font-weight: 700;
     -fx-alignment: CENTER;
     -fx-cursor: hand;
+    -fx-effect: null;
 }
 
 .tile-remove-button:hover {
     -fx-background-color: -danger;
 }
 
-/* ---------- Form sections ---------- */
+/* ---------- Image stage (practice, detail) ---------- */
 
-/* A labeled, outlined group of related controls (Settings, Practice setup):
-   an accent-tinted border with the page's own background inside, so it
-   reads as a grouping outline rather than a raised card. */
-.form-section {
+.image-area {
+    -fx-background-color: -image-area-bg;
+}
+
+.image-detail-view {
     -fx-background-color: -bg-app;
-    -fx-border-color: -accent-soft-border;
-    -fx-border-width: 1.5;
-    -fx-border-radius: 10;
-    -fx-background-radius: 10;
-    -fx-padding: 18;
 }
 
-/* FilterBar normally carries its own -bg-surface card look as a standalone
-   toolbar (Gallery). Nested inside a .form-section it would show as a
-   mismatched white box inside the section's own background — blend it in
-   instead. */
-.form-section .filter-bar {
-    -fx-background-color: transparent;
-    -fx-border-width: 0;
-    -fx-padding: 0;
+.stage-pill {
+    -fx-background-color: -overlay-bg;
+    -fx-background-radius: 99;
+    -fx-text-fill: #ffffff;
+    -fx-font-size: 16px;
+    -fx-font-weight: 600;
+    -fx-padding: 10 22 10 22;
 }
 
-/* ---------- Home ---------- */
+.hud-timer {
+    -fx-font-size: 26px;
+    -fx-font-weight: 700;
+    -fx-text-fill: -text-primary;
+    -fx-min-width: 80px;
+    -fx-alignment: CENTER_RIGHT;
+}
 
-.preset-card {
+.hud-meta {
+    -fx-text-fill: -text-secondary;
+    -fx-font-size: 15px;
+}
+
+.detail-sidebar {
     -fx-background-color: -bg-surface;
-    -fx-border-color: -border-subtle;
-    -fx-border-width: 1;
-    -fx-border-radius: 10;
-    -fx-background-radius: 10;
-    -fx-effect: dropshadow(gaussian, -shadow-soft, 10, 0, 0, 2);
+    -fx-border-color: transparent transparent transparent -border-subtle;
+    -fx-border-width: 0 0 0 1;
 }
 
-.preset-card:hover {
-    -fx-border-color: -border-strong;
-    -fx-effect: dropshadow(gaussian, -shadow-strong, 14, 0, 0, 3);
-}
-
-.preset-card-name {
-    -fx-font-size: 17px;
+.detail-name {
+    -fx-font-size: 20px;
     -fx-font-weight: 600;
 }
 
-.preset-card-summary {
-    -fx-text-fill: -text-secondary;
+.meta-key {
+    -fx-text-fill: -text-tertiary;
+    -fx-font-size: 14.5px;
+}
+
+.meta-value {
+    -fx-text-fill: -text-primary;
+    -fx-font-size: 15px;
+}
+
+/* ---------- Filter builder ---------- */
+
+.filter-row {
+    -fx-background-color: -bg-surface-alt;
+    -fx-background-radius: 10;
+    -fx-padding: 6 6 6 14;
+}
+
+.filter-row-tag {
+    -fx-font-weight: 600;
+}
+
+.filter-panel {
+    -fx-background-color: -bg-surface;
+    -fx-border-color: transparent transparent -border-subtle transparent;
+    -fx-border-width: 0 0 1 0;
+}
+
+/* ---------- Help ---------- */
+
+.kbd {
+    -fx-background-color: -bg-surface-alt;
+    -fx-border-color: -border-strong;
+    -fx-border-width: 1 1 2 1;
+    -fx-border-radius: 7;
+    -fx-background-radius: 7;
+    -fx-padding: 3 10 3 10;
     -fx-font-size: 14px;
+    -fx-font-weight: 600;
+    -fx-text-fill: -text-primary;
+}
+
+/* ---------- Small shared bits ---------- */
+
+.btn-ghost-danger {
+    -fx-text-fill: -danger;
+}
+
+.btn-ghost-danger:hover {
+    -fx-background-color: -danger-soft;
+    -fx-text-fill: -danger;
+}
+
+.queue-index {
+    -fx-background-color: -bg-surface;
+    -fx-background-radius: 99;
+    -fx-min-width: 28px;
+    -fx-min-height: 28px;
+    -fx-alignment: CENTER;
+    -fx-font-size: 14px;
+    -fx-font-weight: 600;
+    -fx-text-fill: -text-secondary;
 }

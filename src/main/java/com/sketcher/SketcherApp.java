@@ -74,7 +74,7 @@ public class SketcherApp extends Application {
         shell.registerView("practice", "Practice", () -> practiceContainerView);
         shell.registerFooterView("settings", "Settings",
                 () -> new SettingsView(library, configStore, config, stage));
-        shell.registerFooterAction("?", () -> showHelp(stage));
+        shell.registerFooterAction("Help", () -> showHelp(stage));
         shell.show("home");
 
         purgeExpiredRecycleItems(library);
@@ -104,14 +104,14 @@ public class SketcherApp extends Application {
         });
     }
 
-    /** Help is a popup, not a sidebar page, so it stays reachable from any screen via the "?" footer button. */
+    /** Help is a popup, not a sidebar page, so it stays reachable from any screen via the "Help" footer button. */
     private void showHelp(Stage stage) {
         Dialog<Void> dialog = new Dialog<>();
         dialog.setTitle("Help");
         dialog.initOwner(stage);
         dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
         dialog.getDialogPane().setContent(new HelpView());
-        dialog.getDialogPane().setPrefSize(620, 680);
+        dialog.getDialogPane().setPrefSize(720, 780);
         Theme.style(dialog.getDialogPane());
         dialog.showAndWait();
     }

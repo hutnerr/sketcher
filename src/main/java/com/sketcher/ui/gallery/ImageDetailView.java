@@ -4,11 +4,11 @@ import com.sketcher.library.LibraryService;
 import com.sketcher.model.ImageRecord;
 import com.sketcher.model.Tag;
 import com.sketcher.ui.common.Dialogs;
+import com.sketcher.ui.components.AppButton;
+import com.sketcher.ui.components.Toolbar;
 import com.sketcher.ui.tags.TagChip;
 import com.sketcher.ui.tags.TagPicker;
 import javafx.geometry.Insets;
-import javafx.geometry.Pos;
-import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.image.Image;
@@ -16,8 +16,7 @@ import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.FlowPane;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 
@@ -38,9 +37,9 @@ public class ImageDetailView extends BorderPane {
 
     private final ImageView imageView = new ImageView();
     private final Label nameLabel = new Label();
-    private final Label metaLabel = new Label();
-    private final ToggleButton favoriteButton = new ToggleButton("★ Favorite");
-    private final FlowPane tagsPane = new FlowPane(6, 6);
+    private final GridPane metaGrid = new GridPane();
+    private final ToggleButton favoriteButton = AppButton.small(AppButton.toggle("★ Favorite", AppButton.Variant.GHOST));
+    private final FlowPane tagsPane = new FlowPane(8, 8);
     private final Label positionLabel = new Label();
 
     public ImageDetailView(LibraryService library, Runnable onClose, Runnable onLibraryChanged) {
@@ -53,34 +52,41 @@ public class ImageDetailView extends BorderPane {
         imageView.setSmooth(true);
         StackPane imageArea = new StackPane(imageView);
         imageArea.getStyleClass().add("image-area");
-        imageView.fitWidthProperty().bind(imageArea.widthProperty().subtract(20));
-        imageView.fitHeightProperty().bind(imageArea.heightProperty().subtract(20));
+        imageArea.setMinSize(0, 0);
+        imageView.fitWidthProperty().bind(imageArea.widthProperty().subtract(48));
+        imageView.fitHeightProperty().bind(imageArea.heightProperty().subtract(48));
         setCenter(imageArea);
 
-        Button prevButton = new Button("< Prev");
-        prevButton.setOnAction(e -> move(-1));
-        Button nextButton = new Button("Next >");
-        nextButton.setOnAction(e -> move(1));
-        Button closeButton = new Button("Close");
-        closeButton.setOnAction(e -> onClose.run());
         favoriteButton.setOnAction(e -> toggleFavorite());
-        Button editTagsButton = new Button("Edit tags…");
-        editTagsButton.setOnAction(e -> editTags());
-        Button deleteButton = new Button("Delete");
-        deleteButton.getStyleClass().add("danger-button");
-        deleteButton.setOnAction(e -> delete());
-
-        HBox topBar = new HBox(10, closeButton, positionLabel, prevButton, nextButton,
-                favoriteButton, editTagsButton, deleteButton);
-        topBar.setAlignment(Pos.CENTER_LEFT);
-        topBar.setPadding(new Insets(14));
+        positionLabel.getStyleClass().add("muted-label");
+        Toolbar topBar = new Toolbar()
+                .left(AppButton.ghost("← Back", onClose).small())
+                .center(AppButton.icon("‹", "Previous (←)", () -> move(-1)), positionLabel,
+                        AppButton.icon("›", "Next (→)", () -> move(1)))
+                .right(favoriteButton, AppButton.ghost("Edit tags…", this::editTags).small(),
+                        Toolbar.divider(), AppButton.danger("Delete", this::delete).small());
         setTop(topBar);
 
         nameLabel.getStyleClass().add("detail-name");
-        tagsPane.setPadding(new Insets(6, 0, 0, 0));
-        VBox sidebar = new VBox(10, nameLabel, metaLabel, new Label("Tags:"), tagsPane);
-        sidebar.setPadding(new Insets(16));
-        sidebar.setPrefWidth(320);
+        nameLabel.setWrapText(true);
+        metaGrid.setHgap(16);
+        javafx.scene.layout.ColumnConstraints keyColumn = new javafx.scene.layout.ColumnConstraints();
+        keyColumn.setMinWidth(javafx.scene.layout.Region.USE_PREF_SIZE);
+        javafx.scene.layout.ColumnConstraints valueColumn = new javafx.scene.layout.ColumnConstraints();
+        valueColumn.setHgrow(javafx.scene.layout.Priority.ALWAYS);
+        valueColumn.setMinWidth(0);
+        metaGrid.getColumnConstraints().addAll(keyColumn, valueColumn);
+        metaGrid.setVgap(8);
+        Label tagsHeading = new Label("Tags");
+        tagsHeading.getStyleClass().add("section-title");
+        VBox sidebar = new VBox(20, nameLabel, metaGrid, tagsHeading, tagsPane);
+        VBox.setMargin(tagsHeading, new Insets(8, 0, -8, 0));
+        sidebar.getStyleClass().add("detail-sidebar");
+        sidebar.setPadding(new Insets(28));
+        sidebar.setPrefWidth(340);
+        sidebar.setMinWidth(340);
+        sidebar.setMaxWidth(340);
+        tagsPane.setPrefWrapLength(280);
         setRight(sidebar);
 
         setFocusTraversable(true);
@@ -116,10 +122,11 @@ public class ImageDetailView extends BorderPane {
         imageView.setImage(new Image(uri, 0, 0, true, true, true));
 
         nameLabel.setText(record.originalName());
-        metaLabel.setText(record.width() + " x " + record.height() + "  ·  " + humanSize(record.byteSize())
-                + "\nImported " + formatDate(record.importedAt())
-                + (record.lastSeenAt() != null ? "\nLast seen " + formatDate(record.lastSeenAt()) : "\nNever practiced")
-                + "\nSeen " + record.seenCount() + " time(s)");
+        metaGrid.getChildren().clear();
+        addMeta(0, "Size", record.width() + " × " + record.height() + "  ·  " + humanSize(record.byteSize()));
+        addMeta(1, "Imported", formatDate(record.importedAt()));
+        addMeta(2, "Last seen", record.lastSeenAt() != null ? formatDate(record.lastSeenAt()) : "Never practiced");
+        addMeta(3, "Practiced", record.seenCount() + (record.seenCount() == 1 ? " time" : " times"));
         favoriteButton.setSelected(record.favorite());
         positionLabel.setText((index + 1) + " / " + context.size());
 
@@ -128,6 +135,21 @@ public class ImageDetailView extends BorderPane {
             library.tags().get(tagId).ifPresent(tag -> tagsPane.getChildren().add(
                     new TagChip(library.tags().fullPath(tag.id()), () -> removeTag(record, tag))));
         }
+        if (tagsPane.getChildren().isEmpty()) {
+            Label none = new Label("No tags yet");
+            none.getStyleClass().add("hint-label");
+            tagsPane.getChildren().add(none);
+        }
+    }
+
+    private void addMeta(int row, String key, String value) {
+        Label keyLabel = new Label(key);
+        keyLabel.getStyleClass().add("meta-key");
+        keyLabel.setMinWidth(USE_PREF_SIZE);
+        Label valueLabel = new Label(value);
+        valueLabel.getStyleClass().add("meta-value");
+        valueLabel.setWrapText(true);
+        metaGrid.addRow(row, keyLabel, valueLabel);
     }
 
     private void toggleFavorite() {

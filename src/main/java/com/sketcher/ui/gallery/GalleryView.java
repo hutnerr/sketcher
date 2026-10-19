@@ -7,24 +7,25 @@ import com.sketcher.model.OrderMode;
 import com.sketcher.ui.common.AsyncTask;
 import com.sketcher.ui.common.Dialogs;
 import com.sketcher.ui.common.Refreshable;
+import com.sketcher.ui.components.AppButton;
+import com.sketcher.ui.components.Card;
+import com.sketcher.ui.components.EmptyState;
+import com.sketcher.ui.components.ImageTile;
+import com.sketcher.ui.components.Page;
+import com.sketcher.ui.components.SegmentedControl;
+import com.sketcher.ui.components.Toolbar;
 import com.sketcher.ui.tags.TagPicker;
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
-import javafx.geometry.Pos;
-import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextInputDialog;
-import javafx.scene.control.ToggleButton;
-import javafx.scene.control.ToggleGroup;
-import javafx.scene.image.ImageView;
 import javafx.scene.input.MouseButton;
-import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.StackPane;
@@ -49,8 +50,8 @@ import java.util.stream.Collectors;
  * TilePane holding every image's tile at once.
  */
 public class GalleryView extends StackPane implements Refreshable {
-    private static final int TILE_SIZE = 190;
-    private static final int TILE_GAP = 10;
+    private static final int TILE_SIZE = 210;
+    private static final int TILE_GAP = 14;
 
     private final LibraryService library;
     private final FilterBar filterBar;
@@ -58,12 +59,13 @@ public class GalleryView extends StackPane implements Refreshable {
     private final ObservableList<List<ImageRecord>> gridRows = FXCollections.observableArrayList();
     private final TableView<ImageRecord> table = new TableView<>();
     private final StackPane contentStack = new StackPane();
-    private final Label statusLabel = new Label();
+    private final Label selectionLabel = new Label();
+    private final Page page = new Page("Gallery");
     private final ImageDetailView detailView;
 
     private final ObservableList<ImageRecord> results = FXCollections.observableArrayList();
     private final Set<Integer> gridSelection = new LinkedHashSet<>();
-    private final Map<Integer, StackPane> renderedTiles = new HashMap<>();
+    private final Map<Integer, ImageTile> renderedTiles = new HashMap<>();
     private Integer lastClickedIndex;
     private boolean gridMode = true;
     private Filter currentFilter = new Filter.All();
@@ -72,38 +74,27 @@ public class GalleryView extends StackPane implements Refreshable {
         this.library = library;
         getStyleClass().add("gallery-view");
 
-        BorderPane mainPane = new BorderPane();
         filterBar = new FilterBar(library);
         filterBar.setOnChange(f -> {
             currentFilter = f;
             runQuery();
         });
-        mainPane.setTop(filterBar);
 
-        ToggleGroup modeGroup = new ToggleGroup();
-        ToggleButton gridButton = new ToggleButton("Grid");
-        gridButton.setToggleGroup(modeGroup);
-        gridButton.setSelected(true);
-        ToggleButton listButton = new ToggleButton("List");
-        listButton.setToggleGroup(modeGroup);
-        gridButton.setOnAction(e -> setMode(true));
-        listButton.setOnAction(e -> setMode(false));
+        SegmentedControl<Boolean> modeChoice = new SegmentedControl<Boolean>()
+                .option(true, "Grid")
+                .option(false, "List")
+                .onChange(this::setMode);
+        page.setActions(modeChoice);
 
-        Button editTagsBtn = new Button("Edit tags");
-        editTagsBtn.setOnAction(e -> bulkEditTags());
-        Button favoriteBtn = new Button("Favorite");
-        favoriteBtn.setOnAction(e -> bulkToggleFavorite());
-        Button playlistBtn = new Button("Add to playlist");
-        playlistBtn.setOnAction(e -> bulkAddToPlaylist());
-        Button deleteBtn = new Button("Delete");
-        deleteBtn.getStyleClass().add("danger-button");
-        deleteBtn.setOnAction(e -> bulkDelete());
-
-        HBox toolbar = new HBox(8, gridButton, listButton, new Label("  "),
-                editTagsBtn, favoriteBtn, playlistBtn, deleteBtn,
-                spacer(), statusLabel);
-        toolbar.setAlignment(Pos.CENTER_LEFT);
-        toolbar.setPadding(new Insets(10, 12, 10, 12));
+        selectionLabel.getStyleClass().add("muted-label");
+        Toolbar bulkBar = new Toolbar().plain()
+                .left(selectionLabel)
+                .right(AppButton.ghost("Edit tags", this::bulkEditTags).small(),
+                        AppButton.ghost("Favorite", this::bulkToggleFavorite).small(),
+                        AppButton.ghost("Add to playlist", this::bulkAddToPlaylist).small(),
+                        Toolbar.divider(),
+                        AppButton.danger("Delete", this::bulkDelete).small());
+        updateSelectionLabel();
 
         gridListView.getStyleClass().add("gallery-grid-list");
         gridListView.setItems(gridRows);
@@ -116,11 +107,13 @@ public class GalleryView extends StackPane implements Refreshable {
                 gridSelection.clear();
                 for (ImageRecord r : results) gridSelection.add(r.id());
                 rebuildTiles();
+                updateSelectionLabel();
                 e.consume();
             }
         });
 
         buildTableColumns();
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
         table.getSelectionModel().setSelectionMode(javafx.scene.control.SelectionMode.MULTIPLE);
         table.setRowFactory(tv -> {
             javafx.scene.control.TableRow<ImageRecord> row = new javafx.scene.control.TableRow<>();
@@ -132,25 +125,24 @@ public class GalleryView extends StackPane implements Refreshable {
             return row;
         });
 
+        gridListView.setPlaceholder(new EmptyState("No images match",
+                "Try loosening the filter, or import some images to get started."));
+        table.setPlaceholder(new EmptyState("No images match", null));
+        table.getSelectionModel().getSelectedItems().addListener(
+                (javafx.collections.ListChangeListener<ImageRecord>) c -> updateSelectionLabel());
         contentStack.getChildren().add(gridListView);
 
-        VBox center = new VBox(toolbar, contentStack);
+        VBox center = new VBox(16, new Card().add(filterBar), bulkBar, contentStack);
         VBox.setVgrow(contentStack, Priority.ALWAYS);
-        mainPane.setCenter(center);
+        page.setBody(center);
 
         detailView = new ImageDetailView(library, this::closeDetail, this::runQuery);
 
-        getChildren().addAll(mainPane, detailView);
+        getChildren().addAll(page, detailView);
         detailView.setVisible(false);
         detailView.setManaged(false);
 
         runQuery();
-    }
-
-    private javafx.scene.layout.Region spacer() {
-        javafx.scene.layout.Region r = new javafx.scene.layout.Region();
-        HBox.setHgrow(r, Priority.ALWAYS);
-        return r;
     }
 
     @Override
@@ -161,6 +153,13 @@ public class GalleryView extends StackPane implements Refreshable {
     private void setMode(boolean grid) {
         this.gridMode = grid;
         contentStack.getChildren().setAll(grid ? gridListView : table);
+        updateSelectionLabel();
+    }
+
+    private void updateSelectionLabel() {
+        int n = selectedRecords().size();
+        selectionLabel.setText(n == 0 ? "Double-click an image to open it"
+                : n + " selected");
     }
 
     private void runQuery() {
@@ -171,14 +170,15 @@ public class GalleryView extends StackPane implements Refreshable {
                     gridSelection.clear();
                     table.setItems(results);
                     rebuildTiles();
-                    statusLabel.setText(results.size() + " image(s)");
+                    updateSelectionLabel();
+                    page.setSubtitle(results.size() + (results.size() == 1 ? " image" : " images"));
                 },
                 err -> Dialogs.error("Could not load images", err.getMessage()));
     }
 
     /** Re-chunks the flat result list into rows sized to the current viewport width. */
     private void rebuildTiles() {
-        int columns = Math.max(1, (int) (gridListView.getWidth() / (TILE_SIZE + TILE_GAP)));
+        int columns = Math.max(1, (int) ((gridListView.getWidth() - 16) / (TILE_SIZE + TILE_GAP)));
         List<List<ImageRecord>> rows = new ArrayList<>();
         for (int i = 0; i < results.size(); i += columns) {
             rows.add(new ArrayList<>(results.subList(i, Math.min(i + columns, results.size()))));
@@ -191,7 +191,7 @@ public class GalleryView extends StackPane implements Refreshable {
         private final HBox box = new HBox(TILE_GAP);
 
         GridRowCell() {
-            box.setPadding(new Insets(4, 0, 4, 0));
+            box.setPadding(new Insets(0, 0, TILE_GAP, 0));
             setGraphic(box);
             setText(null);
         }
@@ -200,8 +200,8 @@ public class GalleryView extends StackPane implements Refreshable {
         protected void updateItem(List<ImageRecord> row, boolean empty) {
             super.updateItem(row, empty);
             for (javafx.scene.Node child : box.getChildren()) {
-                if (child instanceof StackPane sp && sp.getUserData() instanceof Integer id) {
-                    renderedTiles.remove(id, sp);
+                if (child instanceof ImageTile tile && tile.getUserData() instanceof Integer id) {
+                    renderedTiles.remove(id, tile);
                 }
             }
             box.getChildren().clear();
@@ -220,22 +220,10 @@ public class GalleryView extends StackPane implements Refreshable {
      * screen position.
      */
     private javafx.scene.Node buildTile(ImageRecord record) {
-        ImageView imageView = new ImageView(library.thumbnails().load(library.ref(), record.hash()));
-        imageView.setFitWidth(TILE_SIZE - 12);
-        imageView.setFitHeight(TILE_SIZE - 12);
-        imageView.setPreserveRatio(true);
-
-        Label favoriteMark = new Label(record.favorite() ? "★" : "");
-        favoriteMark.getStyleClass().add("favorite-mark");
-
-        StackPane tile = new StackPane(imageView, favoriteMark);
-        StackPane.setAlignment(favoriteMark, Pos.TOP_RIGHT);
-        tile.getStyleClass().add("gallery-tile");
-        tile.setPrefSize(TILE_SIZE, TILE_SIZE);
+        ImageTile tile = new ImageTile(library.thumbnails().load(library.ref(), record.hash()), TILE_SIZE)
+                .favorite(record.favorite());
         tile.setUserData(record.id());
-        if (gridSelection.contains(record.id())) {
-            tile.getStyleClass().add("selected");
-        }
+        tile.setSelected(gridSelection.contains(record.id()));
         renderedTiles.put(record.id(), tile);
 
         // MOUSE_PRESSED instead of MOUSE_CLICKED: a CLICKED event only
@@ -267,6 +255,7 @@ public class GalleryView extends StackPane implements Refreshable {
             }
             lastClickedIndex = index;
             updateSelectionStyles(previouslySelected);
+            updateSelectionLabel();
             e.consume();
         });
 
@@ -278,13 +267,8 @@ public class GalleryView extends StackPane implements Refreshable {
         Set<Integer> changed = new LinkedHashSet<>(previouslySelected);
         changed.addAll(gridSelection);
         for (int id : changed) {
-            StackPane tile = renderedTiles.get(id);
-            if (tile == null) continue;
-            if (gridSelection.contains(id)) {
-                if (!tile.getStyleClass().contains("selected")) tile.getStyleClass().add("selected");
-            } else {
-                tile.getStyleClass().remove("selected");
-            }
+            ImageTile tile = renderedTiles.get(id);
+            if (tile != null) tile.setSelected(gridSelection.contains(id));
         }
     }
 
@@ -393,7 +377,7 @@ public class GalleryView extends StackPane implements Refreshable {
     private void buildTableColumns() {
         TableColumn<ImageRecord, String> nameCol = new TableColumn<>("Name");
         nameCol.setCellValueFactory(cd -> new ReadOnlyStringWrapper(cd.getValue().originalName()));
-        nameCol.setPrefWidth(220);
+        nameCol.setPrefWidth(260);
 
         TableColumn<ImageRecord, String> dimCol = new TableColumn<>("Dimensions");
         dimCol.setCellValueFactory(cd -> new ReadOnlyStringWrapper(
@@ -402,15 +386,18 @@ public class GalleryView extends StackPane implements Refreshable {
         TableColumn<ImageRecord, String> tagsCol = new TableColumn<>("Tags");
         tagsCol.setCellValueFactory(cd -> new ReadOnlyStringWrapper(
                 cd.getValue().tagIds().stream().map(library.tags()::fullPath).collect(Collectors.joining(", "))));
-        tagsCol.setPrefWidth(220);
+        tagsCol.setPrefWidth(280);
 
-        TableColumn<ImageRecord, String> favCol = new TableColumn<>("Fav");
+        TableColumn<ImageRecord, String> favCol = new TableColumn<>("★");
+        favCol.setPrefWidth(56);
         favCol.setCellValueFactory(cd -> new ReadOnlyStringWrapper(cd.getValue().favorite() ? "★" : ""));
 
         TableColumn<ImageRecord, String> importedCol = new TableColumn<>("Imported");
+        importedCol.setPrefWidth(170);
         importedCol.setCellValueFactory(cd -> new ReadOnlyStringWrapper(formatDate(cd.getValue().importedAt())));
 
         TableColumn<ImageRecord, String> lastSeenCol = new TableColumn<>("Last seen");
+        lastSeenCol.setPrefWidth(170);
         lastSeenCol.setCellValueFactory(cd -> new ReadOnlyStringWrapper(
                 cd.getValue().lastSeenAt() == null ? "never" : formatDate(cd.getValue().lastSeenAt())));
 

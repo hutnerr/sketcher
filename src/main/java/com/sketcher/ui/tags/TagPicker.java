@@ -3,8 +3,10 @@ package com.sketcher.ui.tags;
 import com.sketcher.library.LibraryService;
 import com.sketcher.model.Tag;
 import com.sketcher.ui.common.Dialogs;
-import javafx.geometry.Insets;
-import javafx.scene.control.Button;
+import com.sketcher.ui.components.AppButton;
+import com.sketcher.ui.components.Card;
+import com.sketcher.ui.components.Spacer;
+import javafx.geometry.Pos;
 import javafx.scene.control.CheckBoxTreeItem;
 import javafx.scene.control.SelectionMode;
 import javafx.scene.control.TextField;
@@ -39,7 +41,7 @@ public class TagPicker extends VBox {
     private final boolean allowCreate;
     private final TreeView<Tag> treeView = new TreeView<>();
     private final TextField newTagField = new TextField();
-    private final Button collapseToggle = new Button("Collapse all");
+    private final AppButton collapseToggle = AppButton.ghost("Collapse all", null).small();
     private boolean collapsed = false;
 
     public TagPicker(LibraryService library, boolean multiSelect) {
@@ -51,7 +53,8 @@ public class TagPicker extends VBox {
         this.library = library;
         this.multiSelect = multiSelect;
         this.allowCreate = allowCreate;
-        setSpacing(6);
+        setSpacing(12);
+        setPrefWidth(460);
 
         treeView.setShowRoot(false);
         if (multiSelect) {
@@ -78,19 +81,22 @@ public class TagPicker extends VBox {
                 }
             });
         }
-        treeView.setPrefHeight(300);
+        treeView.setPrefHeight(380);
 
         collapseToggle.setOnAction(e -> toggleCollapse());
-        HBox treeToolbar = new HBox(collapseToggle);
+        javafx.scene.control.Label heading = new javafx.scene.control.Label(
+                multiSelect ? "Check every tag that applies" : "Pick a tag");
+        heading.getStyleClass().add("muted-label");
+        HBox treeToolbar = new HBox(8, heading, new Spacer(), collapseToggle);
+        treeToolbar.setAlignment(Pos.CENTER_LEFT);
 
-        getChildren().addAll(treeToolbar, treeView);
+        getChildren().addAll(treeToolbar, new Card().flush().add(treeView));
 
         if (allowCreate) {
-            newTagField.setPromptText("New tag name");
-            Button addButton = new Button("Add");
-            addButton.setOnAction(e -> createTagUnderSelection());
-            HBox addRow = new HBox(6, newTagField, addButton);
-            addRow.setPadding(new Insets(4, 0, 0, 0));
+            newTagField.setPromptText("New tag (added under the selected tag)");
+            newTagField.setOnAction(e -> createTagUnderSelection());
+            HBox.setHgrow(newTagField, javafx.scene.layout.Priority.ALWAYS);
+            HBox addRow = new HBox(8, newTagField, AppButton.secondary("Add", this::createTagUnderSelection));
             getChildren().add(addRow);
         }
 

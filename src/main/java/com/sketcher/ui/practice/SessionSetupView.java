@@ -11,18 +11,20 @@ import com.sketcher.model.SourceKind;
 import com.sketcher.model.TickBehavior;
 import com.sketcher.ui.common.AsyncTask;
 import com.sketcher.ui.common.Dialogs;
+import com.sketcher.ui.components.AppButton;
+import com.sketcher.ui.components.Card;
+import com.sketcher.ui.components.FormRow;
+import com.sketcher.ui.components.NumberField;
+import com.sketcher.ui.components.Page;
+import com.sketcher.ui.components.SegmentedControl;
 import com.sketcher.ui.gallery.FilterBar;
-import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.Node;
-import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ChoiceBox;
 import javafx.scene.control.Label;
-import javafx.scene.control.RadioButton;
 import javafx.scene.control.TextField;
-import javafx.scene.control.ToggleGroup;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 
 import java.util.ArrayList;
@@ -36,40 +38,47 @@ import java.util.function.Consumer;
  * "5 female, 5 male, 5 dog, ramping timer" example) by appending the current
  * form to a list and letting the form be reconfigured for the next segment.
  */
-public class SessionSetupView extends VBox {
+public class SessionSetupView extends Page {
     private final LibraryService library;
     private final FilterBar filterBar;
     private final List<Segment> queuedSegments = new ArrayList<>();
-    private final VBox queueListBox = new VBox(4);
+    private final VBox queueListBox = new VBox(8);
     private final Label queueHint = new Label(
             "Starting/saving now uses this queue, not the form above — add the current segment to it first if it should be included too.");
     private List<Playlist> playlistsCache = List.of();
 
-    private final RadioButton sourceFilterRadio = new RadioButton("Filter");
-    private final RadioButton sourcePlaylistRadio = new RadioButton("Playlist");
-    private final VBox filterSection;
-    private final HBox playlistSection;
+    private final SegmentedControl<SourceKind> sourceChoice = new SegmentedControl<SourceKind>()
+            .option(SourceKind.FILTER, "Filter")
+            .option(SourceKind.PLAYLIST, "Playlist");
+    private final FormRow filterRow;
+    private final FormRow playlistRow;
     private final ChoiceBox<String> playlistChoice = new ChoiceBox<>();
 
     private final ChoiceBox<String> countChoice = new ChoiceBox<>();
     private final ChoiceBox<String> intervalChoice = new ChoiceBox<>();
-    private final HBox intervalRow;
-    private final RadioButton randomOrder = new RadioButton("Random");
-    private final RadioButton sequentialOrder = new RadioButton("Sequential");
-    private final RadioButton tickAdvance = new RadioButton("Advance immediately");
-    private final RadioButton tickBreak = new RadioButton("Break for");
-    private final RadioButton tickWait = new RadioButton("Wait for click");
-    private final TextField breakSecondsField = new TextField("10");
-    private final HBox tickRow;
+    private final FormRow intervalRow;
+    private final SegmentedControl<OrderMode> orderChoice = new SegmentedControl<OrderMode>()
+            .option(OrderMode.RANDOM, "Random")
+            .option(OrderMode.SEQUENTIAL, "Sequential");
+    private final SegmentedControl<TickBehavior> tickChoice = new SegmentedControl<TickBehavior>()
+            .option(TickBehavior.ADVANCE_IMMEDIATELY, "Advance")
+            .option(TickBehavior.BREAK, "Take a break")
+            .option(TickBehavior.WAIT_FOR_CLICK, "Wait for click");
+    private final TextField breakSecondsField = new NumberField(10);
+    private final HBox breakFields;
+    private final FormRow tickRow;
 
-    private final CheckBox rampBox = new CheckBox("Ramp timer to");
-    private final TextField rampToField = new TextField("10");
-    private final HBox rampRow;
+    private final CheckBox rampBox = new CheckBox("Ramp to");
+    private final TextField rampToField = new NumberField(10);
+    private final HBox rampFields;
+    private final FormRow rampRow;
 
-    private final CheckBox memoryModeBox = new CheckBox("Memory drawing mode");
-    private final TextField memoryShowField = new TextField("30");
-    private final TextField memoryHideField = new TextField("10");
-    private final VBox memoryFieldsRow;
+    private final SegmentedControl<Boolean> modeChoice = new SegmentedControl<Boolean>()
+            .option(false, "Standard")
+            .option(true, "Memory drawing");
+    private final TextField memoryShowField = new NumberField(30);
+    private final TextField memoryHideField = new NumberField(10);
+    private final FormRow memoryRow;
 
     private Integer pendingPreselectPlaylistId;
     private final Integer editingPresetId;
@@ -94,82 +103,50 @@ public class SessionSetupView extends VBox {
 
     private SessionSetupView(LibraryService library, Consumer<SessionSpec> onStart, Integer preselectPlaylistId,
                               SessionSpec editingSpec, Integer editingPresetId) {
+        super(editingPresetId != null ? "Edit preset" : "Practice");
         this.library = library;
         this.pendingPreselectPlaylistId = preselectPlaylistId;
         this.editingPresetId = editingPresetId;
         getStyleClass().add("session-setup-view");
-        setSpacing(22);
-        setPadding(new Insets(24));
-
-        Label heading = new Label(editingPresetId != null ? "Edit preset" : "Practice");
-        heading.getStyleClass().add("home-title");
+        setSubtitle("Choose what to draw and how long you get with each image.");
 
         filterBar = new FilterBar(library, false);
 
-        ToggleGroup sourceGroup = new ToggleGroup();
-        sourceFilterRadio.setToggleGroup(sourceGroup);
-        sourcePlaylistRadio.setToggleGroup(sourceGroup);
-        sourceFilterRadio.setSelected(preselectPlaylistId == null);
-        sourcePlaylistRadio.setSelected(preselectPlaylistId != null);
-        sourceFilterRadio.setOnAction(e -> updateSourceVisibility());
-        sourcePlaylistRadio.setOnAction(e -> updateSourceVisibility());
-        Button refreshPlaylistsButton = new Button("Refresh");
-        refreshPlaylistsButton.setOnAction(e -> loadPlaylists());
-
-        filterSection = new VBox(6, filterBar);
-        playlistSection = new HBox(10, new Label("Playlist:"), playlistChoice, refreshPlaylistsButton);
-        playlistSection.setAlignment(Pos.CENTER_LEFT);
+        sourceChoice.setValue(preselectPlaylistId == null ? SourceKind.FILTER : SourceKind.PLAYLIST);
+        sourceChoice.onChange(v -> updateSourceVisibility());
+        filterRow = new FormRow("Images matching").below(filterBar);
+        playlistChoice.setMinWidth(240);
+        playlistRow = new FormRow("Playlist", playlistChoice,
+                AppButton.ghost("Refresh", this::loadPlaylists).small());
 
         countChoice.getItems().addAll(COUNT_OPTIONS);
         countChoice.getSelectionModel().select("Unlimited");
         intervalChoice.getItems().addAll(INTERVAL_OPTIONS);
         intervalChoice.getSelectionModel().select("Untimed");
         intervalChoice.getSelectionModel().selectedItemProperty().addListener((o, a, b) -> updateTimingAvailability());
+        countChoice.setMinWidth(160);
+        intervalChoice.setMinWidth(160);
 
-        ToggleGroup orderGroup = new ToggleGroup();
-        randomOrder.setToggleGroup(orderGroup);
-        sequentialOrder.setToggleGroup(orderGroup);
-        randomOrder.setSelected(true);
+        tickChoice.onChange(v -> updateTimingAvailability());
+        breakFields = new HBox(10, breakSecondsField, unit("sec"));
+        breakFields.setAlignment(Pos.CENTER_LEFT);
 
-        ToggleGroup tickGroup = new ToggleGroup();
-        tickAdvance.setToggleGroup(tickGroup);
-        tickBreak.setToggleGroup(tickGroup);
-        tickWait.setToggleGroup(tickGroup);
-        tickAdvance.setSelected(true);
-        breakSecondsField.setPrefWidth(50);
-
-        rampToField.setPrefWidth(50);
         rampBox.setOnAction(e -> updateTimingAvailability());
+        rampFields = new HBox(10, rampToField, unit("sec/image"));
+        rampFields.setAlignment(Pos.CENTER_LEFT);
 
-        memoryShowField.setPrefWidth(50);
-        memoryHideField.setPrefWidth(50);
-        memoryModeBox.setOnAction(e -> updateTimingAvailability());
+        modeChoice.onChange(v -> updateTimingAvailability());
+        HBox memoryTimes = new HBox(10, unit("Show for"), memoryShowField, unit("sec, then hide for"),
+                memoryHideField, unit("sec"));
+        memoryTimes.setAlignment(Pos.CENTER_LEFT);
 
-        HBox sourceRow = new HBox(14, sourceFilterRadio, sourcePlaylistRadio);
-        sourceRow.setAlignment(Pos.CENTER_LEFT);
-        HBox countRow = new HBox(10, new Label("Image count:"), countChoice);
-        countRow.setAlignment(Pos.CENTER_LEFT);
-        intervalRow = new HBox(10, new Label("Interval:"), intervalChoice);
-        intervalRow.setAlignment(Pos.CENTER_LEFT);
-        HBox orderRow = new HBox(14, new Label("Order:"), randomOrder, sequentialOrder);
-        orderRow.setAlignment(Pos.CENTER_LEFT);
-        tickRow = new HBox(10, new Label("When timer ends:"), tickAdvance, tickBreak, breakSecondsField,
-                new Label("sec"), tickWait);
-        tickRow.setAlignment(Pos.CENTER_LEFT);
-        rampRow = new HBox(10, rampBox, rampToField, new Label("sec/image (from the interval above)"));
-        rampRow.setAlignment(Pos.CENTER_LEFT);
-        HBox memoryTimesRow = new HBox(8, new Label("Show for"), memoryShowField, new Label("sec, then hide for"),
-                memoryHideField, new Label("sec"));
-        memoryTimesRow.setAlignment(Pos.CENTER_LEFT);
-        Label memoryHint = new Label(
-                "While hidden, draw from memory — it reveals again when you click, press Space, or →.");
-        memoryHint.getStyleClass().add("hint-label");
-        memoryHint.setWrapText(true);
-        memoryFieldsRow = new VBox(6, memoryTimesRow, memoryHint);
-        VBox memoryRow = new VBox(8, memoryModeBox, memoryFieldsRow);
+        intervalRow = new FormRow("Time per image", intervalChoice);
+        tickRow = new FormRow("When time is up", tickChoice, breakFields);
+        rampRow = new FormRow("Ramp timer", rampBox, rampFields)
+                .hint("Gradually changes the time per image from the interval above to this value.");
+        memoryRow = new FormRow("Memory timing", memoryTimes)
+                .hint("While hidden, draw from memory — it reveals again when you click, press Space, or →.");
 
-        Button addSegmentButton = new Button("+ Add this segment to queue");
-        addSegmentButton.setOnAction(e -> addSegmentToQueue());
         queueListBox.setVisible(false);
         queueListBox.setManaged(false);
         queueHint.getStyleClass().add("hint-label");
@@ -177,31 +154,22 @@ public class SessionSetupView extends VBox {
         queueHint.setVisible(false);
         queueHint.setManaged(false);
 
-        Button startButton = new Button("Start practice");
-        startButton.getStyleClass().add("primary-button");
-        startButton.setOnAction(e -> start(onStart));
-        Button secondaryButton;
-        if (editingPresetId != null) {
-            secondaryButton = new Button("Update preset");
-            secondaryButton.setOnAction(e -> updatePreset(editingPresetId));
-        } else {
-            secondaryButton = new Button("Save as preset…");
-            secondaryButton.setOnAction(e -> saveAsPreset());
-        }
+        AppButton startButton = AppButton.primary("Start practice", () -> start(onStart));
+        AppButton secondaryButton = editingPresetId != null
+                ? AppButton.secondary("Update preset", () -> updatePreset(editingPresetId))
+                : AppButton.secondary("Save as preset…", this::saveAsPreset);
+        setActions(secondaryButton, startButton);
 
-        VBox sourceSection = new VBox(10, sourceRow, filterSection, playlistSection);
-        VBox imagesSection = new VBox(10, countRow, orderRow);
-        VBox timingSection = new VBox(12, intervalRow, tickRow, rampRow, memoryRow);
-        VBox queueSection = new VBox(10, addSegmentButton, queueHint, queueListBox);
-        HBox actionRow = new HBox(10, startButton, secondaryButton);
-        actionRow.setAlignment(Pos.CENTER_LEFT);
+        Card queueCard = new Card("Segment queue",
+                "Optional. Chain several differently-configured segments into one session.")
+                .headerActions(AppButton.secondary("+ Add this segment", this::addSegmentToQueue).small());
+        queueCard.add(queueHint, queueListBox);
 
-        getChildren().addAll(heading,
-                section("Source", sourceSection),
-                section("Images", imagesSection),
-                section("Timing", timingSection),
-                section("Multi-segment queue (optional)", queueSection),
-                actionRow);
+        setScrollingBody(
+                new Card("Source").add(new FormRow("Draw from", sourceChoice), filterRow, playlistRow),
+                new Card("Images").add(new FormRow("Image count", countChoice), new FormRow("Order", orderChoice)),
+                new Card("Timing").add(new FormRow("Mode", modeChoice), intervalRow, tickRow, rampRow, memoryRow),
+                queueCard);
 
         if (editingSpec != null && !editingSpec.segments().isEmpty()) {
             applyEditingSpec(editingSpec);
@@ -210,6 +178,13 @@ public class SessionSetupView extends VBox {
         updateSourceVisibility();
         updateTimingAvailability();
         loadPlaylists();
+    }
+
+    private static Label unit(String text) {
+        Label label = new Label(text);
+        label.getStyleClass().add("muted-label");
+        label.setMinWidth(Label.USE_PREF_SIZE);
+        return label;
     }
 
     /**
@@ -224,29 +199,23 @@ public class SessionSetupView extends VBox {
         renderQueueList();
 
         Segment last = segments.get(segments.size() - 1);
+        sourceChoice.setValue(last.sourceKind());
         if (last.sourceKind() == SourceKind.PLAYLIST) {
-            sourcePlaylistRadio.setSelected(true);
             pendingPreselectPlaylistId = last.playlistId();
         } else {
-            sourceFilterRadio.setSelected(true);
             filterBar.loadFilter(last.filter());
         }
 
         selectChoice(countChoice, last.itemCount() == null ? "Unlimited" : String.valueOf(last.itemCount()));
-        if (last.orderMode() == OrderMode.SEQUENTIAL) sequentialOrder.setSelected(true);
-        else randomOrder.setSelected(true);
+        orderChoice.setValue(last.orderMode());
 
         if (last.isMemoryMode()) {
-            memoryModeBox.setSelected(true);
+            modeChoice.setValue(true);
             memoryShowField.setText(String.valueOf(last.memoryShowSeconds()));
             memoryHideField.setText(String.valueOf(last.memoryHideSeconds()));
         } else {
             selectChoice(intervalChoice, intervalLabelFor(last.secondsPerImage()));
-            switch (last.tickBehavior()) {
-                case ADVANCE_IMMEDIATELY -> tickAdvance.setSelected(true);
-                case BREAK -> tickBreak.setSelected(true);
-                case WAIT_FOR_CLICK -> tickWait.setSelected(true);
-            }
+            tickChoice.setValue(last.tickBehavior());
             breakSecondsField.setText(String.valueOf(last.breakSeconds()));
             if (last.isRamped()) {
                 rampBox.setSelected(true);
@@ -303,20 +272,10 @@ public class SessionSetupView extends VBox {
                 err -> Dialogs.error("Could not update preset", err.getMessage()));
     }
 
-    private VBox section(String title, Node content) {
-        Label label = new Label(title);
-        label.getStyleClass().add("help-heading");
-        VBox box = new VBox(12, label, content);
-        box.getStyleClass().add("form-section");
-        return box;
-    }
-
     private void updateSourceVisibility() {
-        boolean playlist = sourcePlaylistRadio.isSelected();
-        filterSection.setVisible(!playlist);
-        filterSection.setManaged(!playlist);
-        playlistSection.setVisible(playlist);
-        playlistSection.setManaged(playlist);
+        boolean playlist = sourceChoice.getValue() == SourceKind.PLAYLIST;
+        filterRow.setShown(!playlist);
+        playlistRow.setShown(playlist);
     }
 
     /**
@@ -327,26 +286,24 @@ public class SessionSetupView extends VBox {
      * once Memory drawing mode takes over timing.
      */
     private void updateTimingAvailability() {
-        boolean memoryMode = memoryModeBox.isSelected();
+        boolean memoryMode = modeChoice.getValue();
         boolean timed = !"Untimed".equals(intervalChoice.getValue());
 
-        memoryFieldsRow.setVisible(memoryMode);
-        memoryFieldsRow.setManaged(memoryMode);
-
-        intervalRow.setVisible(!memoryMode);
-        intervalRow.setManaged(!memoryMode);
+        memoryRow.setShown(memoryMode);
+        intervalRow.setShown(!memoryMode);
 
         boolean showTickRow = !memoryMode && timed;
-        tickRow.setVisible(showTickRow);
-        tickRow.setManaged(showTickRow);
+        tickRow.setShown(showTickRow);
+        boolean breaking = tickChoice.getValue() == TickBehavior.BREAK;
+        breakFields.setVisible(breaking);
+        breakFields.setManaged(breaking);
 
         boolean showRampRow = !memoryMode && timed;
-        rampRow.setVisible(showRampRow);
-        rampRow.setManaged(showRampRow);
+        rampRow.setShown(showRampRow);
 
         boolean ramping = rampBox.isSelected() && showRampRow;
-        rampToField.setVisible(ramping);
-        rampToField.setManaged(ramping);
+        rampFields.setVisible(ramping);
+        rampFields.setManaged(ramping);
     }
 
     private void loadPlaylists() {
@@ -380,9 +337,9 @@ public class SessionSetupView extends VBox {
     private Segment buildSegment() {
         Integer itemCount = parseCount(countChoice.getValue());
         if (itemCount == null && countChoice.getValue().equals("Custom…")) return null;
-        OrderMode order = randomOrder.isSelected() ? OrderMode.RANDOM : OrderMode.SEQUENTIAL;
+        OrderMode order = orderChoice.getValue();
 
-        boolean memoryMode = memoryModeBox.isSelected();
+        boolean memoryMode = modeChoice.getValue();
         int seconds;
         TickBehavior tickBehavior;
         int breakSeconds;
@@ -395,8 +352,7 @@ public class SessionSetupView extends VBox {
         } else {
             seconds = parseInterval(intervalChoice.getValue());
             if (seconds < 0) return null;
-            tickBehavior = tickAdvance.isSelected() ? TickBehavior.ADVANCE_IMMEDIATELY
-                    : tickWait.isSelected() ? TickBehavior.WAIT_FOR_CLICK : TickBehavior.BREAK;
+            tickBehavior = tickChoice.getValue();
             breakSeconds = parseIntOr(breakSecondsField.getText(), 10);
             if (rampBox.isSelected() && seconds > 0) {
                 rampTo = parseIntOrNull(rampToField.getText());
@@ -405,7 +361,7 @@ public class SessionSetupView extends VBox {
         }
 
         Segment segment;
-        if (sourcePlaylistRadio.isSelected()) {
+        if (sourceChoice.getValue() == SourceKind.PLAYLIST) {
             Integer playlistId = selectedPlaylistId();
             if (playlistId == null) return null;
             segment = Segment.playlistSegment(playlistId, itemCount, order, seconds, tickBehavior, breakSeconds);
@@ -447,25 +403,30 @@ public class SessionSetupView extends VBox {
 
     private HBox buildQueueRow(int index) {
         Segment segment = queuedSegments.get(index);
-        Label summary = new Label((index + 1) + ". " + summarizeSegment(segment));
-        Button upButton = new Button("↑");
-        upButton.setDisable(index == 0);
-        upButton.setOnAction(e -> {
+        Label number = new Label(String.valueOf(index + 1));
+        number.getStyleClass().add("queue-index");
+        Label summary = new Label(summarizeSegment(segment));
+        summary.setWrapText(true);
+        summary.setMaxWidth(Double.MAX_VALUE);
+        HBox.setHgrow(summary, Priority.ALWAYS);
+
+        AppButton upButton = AppButton.icon("↑", "Move up", () -> {
             queuedSegments.add(index - 1, queuedSegments.remove(index));
             renderQueueList();
         });
-        Button downButton = new Button("↓");
-        downButton.setDisable(index == queuedSegments.size() - 1);
-        downButton.setOnAction(e -> {
+        upButton.setDisable(index == 0);
+        AppButton downButton = AppButton.icon("↓", "Move down", () -> {
             queuedSegments.add(index + 1, queuedSegments.remove(index));
             renderQueueList();
         });
-        Button removeButton = new Button("x");
-        removeButton.setOnAction(e -> {
+        downButton.setDisable(index == queuedSegments.size() - 1);
+        AppButton removeButton = AppButton.icon("✕", "Remove", () -> {
             queuedSegments.remove(index);
             renderQueueList();
         });
-        HBox row = new HBox(8, summary, upButton, downButton, removeButton);
+
+        HBox row = new HBox(12, number, summary, upButton, downButton, removeButton);
+        row.getStyleClass().add("filter-row");
         row.setAlignment(Pos.CENTER_LEFT);
         return row;
     }

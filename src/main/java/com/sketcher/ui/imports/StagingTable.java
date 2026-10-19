@@ -6,7 +6,7 @@ import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
-import javafx.scene.control.Button;
+import com.sketcher.ui.components.AppButton;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.SelectionMode;
 import javafx.scene.control.TableCell;
@@ -21,6 +21,8 @@ public class StagingTable extends TableView<ImportCandidate> {
 
     public StagingTable() {
         setItems(candidates);
+        setFixedCellSize(68);
+        setColumnResizePolicy(CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
         getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
 
         TableColumn<ImportCandidate, ImportCandidate> includeCol = new TableColumn<>("Import");
@@ -41,7 +43,7 @@ public class StagingTable extends TableView<ImportCandidate> {
                 setGraphic(checkBox);
             }
         });
-        includeCol.setPrefWidth(60);
+        includeCol.setPrefWidth(76);
         includeCol.setSortable(false);
 
         TableColumn<ImportCandidate, ImportCandidate> thumbCol = new TableColumn<>("");
@@ -56,23 +58,23 @@ public class StagingTable extends TableView<ImportCandidate> {
                     setGraphic(null);
                     return;
                 }
-                imageView.setFitWidth(48);
-                imageView.setFitHeight(48);
+                imageView.setFitWidth(56);
+                imageView.setFitHeight(56);
                 imageView.setPreserveRatio(true);
                 try {
-                    imageView.setImage(new Image(item.sourcePath().toUri().toString(), 48, 48, true, true, true));
+                    imageView.setImage(new Image(item.sourcePath().toUri().toString(), 56, 56, true, true, true));
                 } catch (Exception ignored) {
                     imageView.setImage(null);
                 }
                 setGraphic(imageView);
             }
         });
-        thumbCol.setPrefWidth(60);
+        thumbCol.setPrefWidth(76);
         thumbCol.setSortable(false);
 
         TableColumn<ImportCandidate, String> nameCol = new TableColumn<>("File");
         nameCol.setCellValueFactory(cd -> new ReadOnlyStringWrapper(cd.getValue().fileName()));
-        nameCol.setPrefWidth(220);
+        nameCol.setPrefWidth(260);
 
         TableColumn<ImportCandidate, String> dimCol = new TableColumn<>("Dimensions");
         dimCol.setCellValueFactory(cd -> new ReadOnlyStringWrapper(cd.getValue().dimensionsText()));
@@ -87,12 +89,12 @@ public class StagingTable extends TableView<ImportCandidate> {
             String reason = c.reasonProperty().get();
             return new ReadOnlyStringWrapper(reason == null || reason.isBlank() ? text : text + " (" + reason + ")");
         });
-        statusCol.setPrefWidth(220);
+        statusCol.setPrefWidth(260);
 
         TableColumn<ImportCandidate, ImportCandidate> removeCol = new TableColumn<>("");
         removeCol.setCellValueFactory(cd -> new ReadOnlyObjectWrapper<>(cd.getValue()));
         removeCol.setCellFactory(col -> new TableCell<>() {
-            private final Button removeButton = new Button("x");
+            private final AppButton removeButton = AppButton.icon("✕", "Remove from batch", null);
 
             @Override
             protected void updateItem(ImportCandidate item, boolean empty) {

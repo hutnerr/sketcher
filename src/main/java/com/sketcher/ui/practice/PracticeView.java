@@ -10,19 +10,18 @@ import com.sketcher.practice.SessionEngine;
 import com.sketcher.practice.SessionSpecCodec;
 import com.sketcher.ui.common.AsyncTask;
 import com.sketcher.ui.common.Dialogs;
+import com.sketcher.ui.components.AppButton;
+import com.sketcher.ui.components.Toolbar;
 import com.sketcher.ui.tags.TagChip;
 import com.sketcher.ui.tags.TagPicker;
 import javafx.animation.Animation;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.geometry.Insets;
-import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
 import javafx.scene.Group;
-import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
-import javafx.scene.control.Separator;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.effect.ColorAdjust;
 import javafx.scene.image.Image;
@@ -31,6 +30,7 @@ import javafx.scene.input.KeyCode;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.shape.Rectangle;
@@ -67,12 +67,11 @@ public class PracticeView extends BorderPane {
 
     private final Label hudTime = new Label();
     private final Label hudPosition = new Label();
-    private final Label hudSegment = new Label();
-    private final FlowPane hudTags = new FlowPane(6, 6);
+    private final FlowPane hudTags = new FlowPane(8, 8);
     private final CheckBox showTagsBox = new CheckBox("Show tags");
-    private final CheckBox keepTransformsBox = new CheckBox("Keep flip/grayscale across images");
-    private final ToggleButton pauseButton = new ToggleButton("Pause");
-    private final ToggleButton favoriteButton = new ToggleButton("★ Favorite");
+    private final CheckBox keepTransformsBox = new CheckBox("Keep flip/grayscale");
+    private final ToggleButton pauseButton = AppButton.small(AppButton.toggle("Pause", AppButton.Variant.SECONDARY));
+    private final ToggleButton favoriteButton = AppButton.small(AppButton.toggle("★ Favorite", AppButton.Variant.GHOST));
     private final Label overlayLabel = new Label();
 
     private boolean flipH, flipV, grayscaleOn;
@@ -122,11 +121,27 @@ public class PracticeView extends BorderPane {
             if (awaitingManualAdvance()) engine.advanceClick();
         });
 
-        setCenter(viewport);
+        // Status messages (Paused, Break, Memorize…) float over the image as a
+        // pill rather than living in the HUD, so they're seen at a glance.
+        overlayLabel.getStyleClass().add("stage-pill");
+        overlayLabel.setMouseTransparent(true);
+        overlayLabel.visibleProperty().bind(overlayLabel.textProperty().isNotEmpty());
+        StackPane stage = new StackPane(viewport, overlayLabel);
+        // The image's natural size must never become the stage's minimum size —
+        // if it loads before the first layout pass, fitWidth/fitHeight would
+        // otherwise lock onto it and push the toolbar/HUD off-screen.
+        viewport.setMinSize(0, 0);
+        stage.setMinSize(0, 0);
+        StackPane.setAlignment(overlayLabel, Pos.TOP_CENTER);
+        StackPane.setMargin(overlayLabel, new Insets(24));
+        setCenter(stage);
         setTop(buildTopBar());
         setBottom(buildHud());
 
         showTagsBox.setSelected(true);
+        showTagsBox.setOnAction(e -> {
+            if (currentRecord != null) renderTags(currentRecord);
+        });
         keepTransformsBox.setSelected(true);
         pauseButton.setOnAction(e -> togglePause());
         favoriteButton.setOnAction(e -> toggleFavorite());
@@ -172,34 +187,21 @@ public class PracticeView extends BorderPane {
         }
     }
 
-    private HBox buildTopBar() {
-        Button exitButton = new Button("Exit session");
-        exitButton.setOnAction(e -> confirmExit());
-        Button prevButton = new Button("< Prev");
-        prevButton.setOnAction(e -> engine.previous());
-        Button nextButton = new Button("Next >");
-        nextButton.setOnAction(e -> advance());
-        Button flipHButton = new Button("Flip H");
-        flipHButton.setOnAction(e -> { flipH = !flipH; applyFlip(); });
-        Button flipVButton = new Button("Flip V");
-        flipVButton.setOnAction(e -> { flipV = !flipV; applyFlip(); });
-        ToggleButton grayscaleButton = new ToggleButton("Grayscale");
+    private Toolbar buildTopBar() {
+        ToggleButton grayscaleButton = AppButton.small(AppButton.toggle("Grayscale", AppButton.Variant.GHOST));
         grayscaleButton.setOnAction(e -> { grayscaleOn = grayscaleButton.isSelected(); applyGrayscale(); });
-        Button zoomFitButton = new Button("Fit");
-        zoomFitButton.setOnAction(e -> resetZoomPan());
-        Button tagButton = new Button("Tag…");
-        tagButton.setOnAction(e -> tagCurrent());
 
-        HBox bar = new HBox(10, exitButton, sep(), pauseButton, prevButton, nextButton, sep(),
-                flipHButton, flipVButton, grayscaleButton, zoomFitButton, sep(),
-                favoriteButton, tagButton, sep(), keepTransformsBox, showTagsBox);
-        bar.setAlignment(Pos.CENTER_LEFT);
-        bar.setPadding(new Insets(14));
-        return bar;
-    }
-
-    private Separator sep() {
-        return new Separator(Orientation.VERTICAL);
+        return new Toolbar()
+                .left(AppButton.ghost("← Exit", this::confirmExit).small())
+                .center(AppButton.icon("‹", "Previous (←)", engine::previous), pauseButton,
+                        AppButton.icon("›", "Next (→)", this::advance))
+                .right(AppButton.ghost("Flip H", () -> { flipH = !flipH; applyFlip(); }).small(),
+                        AppButton.ghost("Flip V", () -> { flipV = !flipV; applyFlip(); }).small(),
+                        grayscaleButton,
+                        AppButton.ghost("Fit", this::resetZoomPan).small(),
+                        Toolbar.divider(),
+                        favoriteButton,
+                        AppButton.ghost("Tag…", this::tagCurrent).small());
     }
 
     /** Same "next" semantics as the Right-arrow shortcut: dismiss a waiting phase before actually advancing. */
@@ -208,14 +210,24 @@ public class PracticeView extends BorderPane {
         else engine.next();
     }
 
-    private VBox buildHud() {
-        overlayLabel.getStyleClass().add("overlay-label");
-        hudTags.setPadding(new Insets(6, 0, 0, 0));
-        HBox statusRow = new HBox(20, hudPosition, hudSegment, hudTime);
-        statusRow.setAlignment(Pos.CENTER_LEFT);
-        VBox hud = new VBox(8, overlayLabel, statusRow, hudTags);
-        hud.setPadding(new Insets(14));
-        hud.getStyleClass().add("hud");
+    private HBox buildHud() {
+        hudPosition.getStyleClass().add("hud-meta");
+        hudTime.getStyleClass().add("hud-timer");
+        HBox.setHgrow(hudTags, Priority.ALWAYS);
+        hudTags.setAlignment(Pos.CENTER_LEFT);
+
+        keepTransformsBox.setMinWidth(HBox.USE_PREF_SIZE);
+        showTagsBox.setMinWidth(HBox.USE_PREF_SIZE);
+        HBox options = new HBox(20, keepTransformsBox, showTagsBox);
+        options.setAlignment(Pos.CENTER_LEFT);
+        options.setMinWidth(HBox.USE_PREF_SIZE);
+        VBox left = new VBox(8, hudPosition, hudTags);
+        HBox.setHgrow(left, Priority.ALWAYS);
+
+        HBox hud = new HBox(24, left, options, hudTime);
+        hud.setAlignment(Pos.CENTER_LEFT);
+        hud.setPadding(new Insets(14, 24, 14, 24));
+        hud.getStyleClass().addAll("app-toolbar", "bottom", "hud");
         return hud;
     }
 
@@ -234,7 +246,7 @@ public class PracticeView extends BorderPane {
                     resetZoomPan();
                     applyFlip();
                     favoriteButton.setSelected(record.favorite());
-                    hudPosition.setText((position + 1) + " / " + total);
+                    hudPosition.setText("Image " + (position + 1) + " of " + total);
                     renderTags(record);
                 },
                 err -> Dialogs.error("Could not load image", err.getMessage()));

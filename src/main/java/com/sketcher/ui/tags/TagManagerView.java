@@ -5,11 +5,12 @@ import com.sketcher.library.LibraryService;
 import com.sketcher.model.Tag;
 import com.sketcher.ui.common.Dialogs;
 import com.sketcher.ui.common.Refreshable;
-import javafx.geometry.Insets;
-import javafx.scene.control.Button;
+import com.sketcher.ui.components.AppButton;
+import com.sketcher.ui.components.Card;
+import com.sketcher.ui.components.EmptyState;
+import com.sketcher.ui.components.Page;
 import javafx.scene.control.ChoiceDialog;
 import javafx.scene.control.ContextMenu;
-import javafx.scene.control.Label;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.TreeCell;
 import javafx.scene.control.TreeItem;
@@ -17,8 +18,8 @@ import javafx.scene.control.TreeView;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.Dragboard;
 import javafx.scene.input.TransferMode;
-import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 
 import java.util.List;
@@ -27,29 +28,25 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 /** Tag CRUD, hierarchy management (drag to reparent), and merge (PLAN.md 4.3). */
-public class TagManagerView extends BorderPane implements Refreshable {
+public class TagManagerView extends Page implements Refreshable {
     private final LibraryService library;
     private final TreeView<Tag> treeView = new TreeView<>();
+    private final EmptyState emptyState = new EmptyState("No tags yet",
+            "Tags organize your references — e.g. figure › hands. Create one to get started.");
 
     public TagManagerView(LibraryService library) {
+        super("Tags");
         this.library = library;
         getStyleClass().add("tag-manager-view");
-
-        Button newRootButton = new Button("New root tag");
-        newRootButton.setOnAction(e -> createChild(null));
-        HBox toolbar = new HBox(10, newRootButton);
-        toolbar.setPadding(new Insets(14));
-
-        Label hint = new Label("Drag a tag onto another to re-parent it. Right-click for more actions.");
-        hint.getStyleClass().add("hint-label");
-
-        VBox top = new VBox(6, toolbar, hint);
-        setTop(top);
+        setSubtitle("Drag a tag onto another to re-parent it. Right-click a tag for more actions.");
+        setActions(AppButton.primary("New tag", () -> createChild(null)));
 
         treeView.setShowRoot(false);
         treeView.setCellFactory(tv -> new TagTreeCell());
-        setCenter(treeView);
-        setPadding(new Insets(0, 16, 16, 16));
+        // TreeView has no placeholder support, so the empty state sits on top of it instead.
+        StackPane treeStack = new StackPane(treeView, emptyState);
+        VBox.setVgrow(treeStack, Priority.ALWAYS);
+        setBody(new Card().flush().add(treeStack));
 
         refresh();
     }
@@ -72,6 +69,7 @@ public class TagManagerView extends BorderPane implements Refreshable {
         }
         hiddenRoot.setExpanded(true);
         treeView.setRoot(hiddenRoot);
+        emptyState.setVisible(roots.isEmpty());
     }
 
     private TreeItem<Tag> buildNode(Tag tag, Map<Integer, List<Tag>> byParent) {

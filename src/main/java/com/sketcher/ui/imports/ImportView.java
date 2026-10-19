@@ -6,20 +6,22 @@ import com.sketcher.model.ImportCandidate;
 import com.sketcher.ui.common.AsyncTask;
 import com.sketcher.ui.common.Dialogs;
 import com.sketcher.ui.common.Refreshable;
+import com.sketcher.ui.components.AppButton;
+import com.sketcher.ui.components.Card;
+import com.sketcher.ui.components.FormRow;
+import com.sketcher.ui.components.Page;
+import com.sketcher.ui.components.SegmentedControl;
+import com.sketcher.ui.components.Spacer;
 import com.sketcher.ui.tags.TagPicker;
 import javafx.application.Platform;
-import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Alert;
-import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressBar;
-import javafx.scene.control.RadioButton;
-import javafx.scene.control.ToggleGroup;
-import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
@@ -39,55 +41,52 @@ import java.util.stream.Stream;
  * Pick files/folders, review them in the staging table, pick batch tags and
  * copy-vs-move, then commit (PLAN.md 4.1).
  */
-public class ImportView extends BorderPane implements Refreshable {
+public class ImportView extends Page implements Refreshable {
     private final LibraryService library;
     private final StagingTable stagingTable = new StagingTable();
-    private final Label batchTagsLabel = new Label("(none)");
-    private final Label summaryLabel = new Label("0 file(s) staged");
-    private final RadioButton copyRadio = new RadioButton("Copy");
-    private final RadioButton moveRadio = new RadioButton("Move");
+    private final Label batchTagsLabel = new Label("None");
+    private final SegmentedControl<Boolean> moveChoice = new SegmentedControl<Boolean>()
+            .option(false, "Copy files")
+            .option(true, "Move files");
     private Set<Integer> batchTagIds = new HashSet<>();
 
     public ImportView(LibraryService library) {
+        super("Import");
         this.library = library;
         getStyleClass().add("import-view");
-        setPadding(new Insets(16));
+        setSubtitle("No files staged");
 
         CheckBox includeSubfolders = new CheckBox("Include subfolders");
+        includeSubfolders.setMinWidth(USE_PREF_SIZE);
+        AppButton confirmButton = AppButton.primary("Import", this::confirmImport);
+        setActions(confirmButton);
 
-        Button addFilesButton = new Button("Add files…");
-        addFilesButton.setOnAction(e -> addFiles());
-        Button addFolderButton = new Button("Add folder…");
-        addFolderButton.setOnAction(e -> addFolder(includeSubfolders.isSelected()));
-        Button clearButton = new Button("Clear staged");
-        clearButton.setOnAction(e -> stagingTable.candidates().clear());
-
-        HBox pickRow = new HBox(10, addFilesButton, addFolderButton, includeSubfolders, clearButton);
+        HBox pickRow = new HBox(10,
+                AppButton.secondary("Add files…", this::addFiles),
+                AppButton.secondary("Add folder…", () -> addFolder(includeSubfolders.isSelected())),
+                includeSubfolders, new Spacer(),
+                AppButton.ghost("Clear staged", () -> stagingTable.candidates().clear()));
         pickRow.setAlignment(Pos.CENTER_LEFT);
 
-        ToggleGroup copyMoveGroup = new ToggleGroup();
-        copyRadio.setToggleGroup(copyMoveGroup);
-        moveRadio.setToggleGroup(copyMoveGroup);
-        copyRadio.setSelected(true);
+        batchTagsLabel.getStyleClass().add("muted-label");
+        batchTagsLabel.setWrapText(true);
+        Card optionsCard = new Card().add(
+                pickRow,
+                new FormRow("Tags for whole batch", batchTagsLabel,
+                        AppButton.secondary("Choose tags…", this::chooseBatchTags).small()),
+                new FormRow("Into the library", moveChoice)
+                        .hint("Move removes the originals from their current folder after importing."));
 
-        Button batchTagsButton = new Button("Batch tags…");
-        batchTagsButton.setOnAction(e -> chooseBatchTags());
+        VBox.setVgrow(stagingTable, Priority.ALWAYS);
+        stagingTable.setPlaceholder(new com.sketcher.ui.components.EmptyState("Nothing staged yet",
+                "Add files or a whole folder to review them here before they're imported."));
+        VBox body = new VBox(20, optionsCard, stagingTable);
+        setBody(body);
 
-        Button confirmButton = new Button("Import");
-        confirmButton.getStyleClass().add("primary-button");
-        confirmButton.setOnAction(e -> confirmImport());
-
-        HBox optionsRow = new HBox(14, new Label("Tags for whole batch:"), batchTagsLabel, batchTagsButton,
-                new Label("  "), copyRadio, moveRadio, new Label("  "), confirmButton);
-        optionsRow.setAlignment(Pos.CENTER_LEFT);
-
-        VBox top = new VBox(10, pickRow, optionsRow, summaryLabel);
-        top.setPadding(new Insets(0, 0, 14, 0));
-        setTop(top);
-        setCenter(stagingTable);
-
-        stagingTable.candidates().addListener((javafx.collections.ListChangeListener<ImportCandidate>) c ->
-                summaryLabel.setText(stagingTable.candidates().size() + " file(s) staged"));
+        stagingTable.candidates().addListener((javafx.collections.ListChangeListener<ImportCandidate>) c -> {
+            int n = stagingTable.candidates().size();
+            setSubtitle(n == 0 ? "No files staged" : n + (n == 1 ? " file staged" : " files staged"));
+        });
     }
 
     @Override
@@ -140,7 +139,7 @@ public class ImportView extends BorderPane implements Refreshable {
     private void chooseBatchTags() {
         TagPicker.pickMany(library).ifPresent(ids -> {
             batchTagIds = ids;
-            batchTagsLabel.setText(ids.isEmpty() ? "(none)"
+            batchTagsLabel.setText(ids.isEmpty() ? "None"
                     : ids.stream().map(library.tags()::fullPath).collect(Collectors.joining(", ")));
         });
     }
@@ -151,14 +150,14 @@ public class ImportView extends BorderPane implements Refreshable {
             Dialogs.error("Nothing to import", "Add some files or a folder first.");
             return;
         }
-        boolean move = moveRadio.isSelected();
+        boolean move = moveChoice.getValue();
 
         ProgressBar progressBar = new ProgressBar(0);
-        progressBar.setPrefWidth(300);
+        progressBar.setPrefWidth(380);
         Label progressLabel = new Label("Starting…");
         Alert progressAlert = new Alert(Alert.AlertType.NONE);
         progressAlert.setTitle("Importing");
-        progressAlert.getDialogPane().setContent(new VBox(8, progressLabel, progressBar));
+        progressAlert.getDialogPane().setContent(new VBox(12, progressLabel, progressBar));
         progressAlert.getButtonTypes().add(ButtonType.CANCEL);
         com.sketcher.ui.common.Theme.style(progressAlert.getDialogPane());
         AtomicBoolean cancelFlag = new AtomicBoolean(false);

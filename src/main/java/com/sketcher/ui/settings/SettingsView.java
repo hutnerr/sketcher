@@ -8,12 +8,12 @@ import com.sketcher.library.LibraryService;
 import com.sketcher.ui.common.AsyncTask;
 import com.sketcher.ui.common.Dialogs;
 import com.sketcher.ui.common.Theme;
-import javafx.geometry.Insets;
-import javafx.scene.control.Button;
-import javafx.scene.control.ChoiceBox;
+import com.sketcher.ui.components.AppButton;
+import com.sketcher.ui.components.Card;
+import com.sketcher.ui.components.FormRow;
+import com.sketcher.ui.components.Page;
+import com.sketcher.ui.components.SegmentedControl;
 import javafx.scene.control.Label;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.VBox;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
@@ -25,67 +25,51 @@ import java.io.UncheckedIOException;
 import java.nio.file.Path;
 
 /** Theme, library location, and archive export/import (PLAN.md 4.9, 4.8). */
-public class SettingsView extends VBox {
+public class SettingsView extends Page {
 
     public SettingsView(LibraryService library, ConfigStore configStore, AppConfig config, Stage stage) {
+        super("Settings");
         getStyleClass().add("settings-view");
-        setSpacing(20);
-        setPadding(new Insets(24));
+        setSubtitle("Appearance, library location, and backups.");
 
-        Label heading = new Label("Settings");
-        heading.getStyleClass().add("home-title");
-
-        getChildren().addAll(heading,
-                section("Theme", buildThemeSection(configStore, config, stage)),
-                section("Library", buildLibrarySection(library, configStore, config, stage)),
-                section("Backup", buildArchiveSection(library, stage)));
+        setScrollingBody(
+                buildThemeSection(configStore, config, stage),
+                buildLibrarySection(library, configStore, config, stage),
+                buildArchiveSection(library, stage));
     }
 
-    private VBox section(String title, VBox content) {
-        Label label = new Label(title);
-        label.getStyleClass().add("help-heading");
-        VBox box = new VBox(12, label, content);
-        box.getStyleClass().add("form-section");
-        return box;
-    }
-
-    private VBox buildThemeSection(ConfigStore configStore, AppConfig config, Stage stage) {
-        ChoiceBox<String> themeChoice = new ChoiceBox<>();
-        themeChoice.getItems().addAll("Dark", "Light");
-        themeChoice.getSelectionModel().select(Theme.LIGHT.equals(config.theme) ? "Light" : "Dark");
-        themeChoice.getSelectionModel().selectedItemProperty().addListener((o, a, b) -> {
-            config.theme = "Light".equals(b) ? Theme.LIGHT : Theme.DARK;
+    private Card buildThemeSection(ConfigStore configStore, AppConfig config, Stage stage) {
+        SegmentedControl<String> themeChoice = new SegmentedControl<String>()
+                .option(Theme.LIGHT, "Light")
+                .option(Theme.DARK, "Dark");
+        themeChoice.setValue(Theme.LIGHT.equals(config.theme) ? Theme.LIGHT : Theme.DARK);
+        themeChoice.onChange(theme -> {
+            config.theme = theme;
             configStore.save(config);
             if (stage.getScene() != null) Theme.apply(stage.getScene(), config.theme);
         });
 
-        return new VBox(themeChoice);
+        return new Card("Appearance").add(new FormRow("Theme", themeChoice));
     }
 
-    private VBox buildLibrarySection(LibraryService library, ConfigStore configStore, AppConfig config, Stage stage) {
+    private Card buildLibrarySection(LibraryService library, ConfigStore configStore, AppConfig config, Stage stage) {
         Label pathLabel = new Label(library.root().toString());
         pathLabel.setWrapText(true);
+        pathLabel.getStyleClass().add("muted-label");
 
-        Button revealButton = new Button("Reveal in file manager");
-        revealButton.setOnAction(e -> reveal(library.root()));
-        Button changeButton = new Button("Change library…");
-        changeButton.setOnAction(e -> changeLibrary(stage, configStore, config));
-        HBox libraryActions = new HBox(10, revealButton, changeButton);
-
-        return new VBox(8, pathLabel, libraryActions);
+        return new Card("Library", "Where Sketcher keeps your originals, tags, and settings.").add(
+                new FormRow("Location", pathLabel),
+                new FormRow("",
+                        AppButton.secondary("Reveal in file manager", () -> reveal(library.root())),
+                        AppButton.secondary("Change library…", () -> changeLibrary(stage, configStore, config))));
     }
 
-    private VBox buildArchiveSection(LibraryService library, Stage stage) {
-        Label hint = new Label("Move this library to another computer, or merge another Sketcher library into this one.");
-        hint.setWrapText(true);
-
-        Button exportButton = new Button("Export library…");
-        exportButton.setOnAction(e -> exportLibrary(library, stage));
-        Button importButton = new Button("Import archive…");
-        importButton.setOnAction(e -> importArchive(library, stage));
-        HBox actions = new HBox(10, exportButton, importButton);
-
-        return new VBox(6, hint, actions);
+    private Card buildArchiveSection(LibraryService library, Stage stage) {
+        return new Card("Backup",
+                "Move this library to another computer, or merge another Sketcher library into this one.").add(
+                new FormRow("Archive",
+                        AppButton.secondary("Export library…", () -> exportLibrary(library, stage)),
+                        AppButton.secondary("Import archive…", () -> importArchive(library, stage))));
     }
 
     private void exportLibrary(LibraryService library, Stage stage) {

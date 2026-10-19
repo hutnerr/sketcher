@@ -6,8 +6,8 @@ import java.util.List;
 public class AppConfig {
     public String libraryRoot;
     public List<String> recentLibraries = new ArrayList<>();
-    public double windowWidth = 1100;
-    public double windowHeight = 720;
+    public double windowWidth = 1360;
+    public double windowHeight = 880;
     /** "dark" (default) or "light" — see com.sketcher.ui.common.Theme (PLAN.md 4.9). */
     public String theme = "dark";
 
