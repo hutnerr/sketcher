@@ -70,8 +70,17 @@ public class Page extends BorderPane {
 
     /** Body as a scrolling column of stacked sections. Returns the column so callers can add to it later. */
     public VBox setScrollingBody(Node... sections) {
+        return setScrollingBody(true, sections);
+    }
+
+    /**
+     * capWidth false lets the column fill the page — for forms with wide
+     * rows (the Practice setup's condition builder) that would otherwise sit
+     * in the left part of a large window.
+     */
+    public VBox setScrollingBody(boolean capWidth, Node... sections) {
         VBox column = new VBox(20, sections);
-        column.setMaxWidth(READABLE_WIDTH);
+        column.setMaxWidth(capWidth ? READABLE_WIDTH : Double.MAX_VALUE);
         column.setPadding(new Insets(0, GUTTER, GUTTER, GUTTER));
         ScrollPane scroll = new ScrollPane(column);
         scroll.setFitToWidth(true);

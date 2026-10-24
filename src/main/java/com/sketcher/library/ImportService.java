@@ -17,9 +17,11 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -81,7 +83,12 @@ public class ImportService {
         }
     }
 
-    public record ImportResult(int imported, int taggedExisting, int skipped, int failed, boolean cancelled) {
+    /** failures maps each candidate that couldn't be imported to why, so the staging table can keep it for a retry. */
+    public record ImportResult(int imported, int taggedExisting, int skipped,
+                               Map<ImportCandidate, String> failures, boolean cancelled) {
+        public int failed() {
+            return failures.size();
+        }
     }
 
     /**
@@ -94,13 +101,15 @@ public class ImportService {
                                      ImageDao imageDao, java.util.concurrent.atomic.AtomicBoolean cancelFlag,
                                      java.util.function.IntConsumer onProgress) {
         List<Path> copiedFiles = new ArrayList<>();
-        int imported = 0, taggedExisting = 0, skipped = 0, failed = 0;
+        int imported = 0, taggedExisting = 0, skipped = 0;
+        // Identity keys: two staged copies of the same file are still two rows.
+        Map<ImportCandidate, String> failures = new IdentityHashMap<>();
         try {
             connection.setAutoCommit(false);
             for (int i = 0; i < candidates.size(); i++) {
                 if (cancelFlag != null && cancelFlag.get()) {
                     rollback(copiedFiles);
-                    return new ImportResult(0, 0, 0, 0, true);
+                    return new ImportResult(0, 0, 0, Map.of(), true);
                 }
                 ImportCandidate candidate = candidates.get(i);
                 onProgress.accept(i);
@@ -123,7 +132,7 @@ public class ImportService {
                         imageDao.addTags(existing.id(), allTags(batchTagIds, candidate));
                         taggedExisting++;
                     } catch (IOException e) {
-                        failed++;
+                        failures.put(candidate, describe(e));
                     }
                     continue;
                 }
@@ -151,7 +160,7 @@ public class ImportService {
                     }
                     imported++;
                 } catch (IOException e) {
-                    failed++;
+                    failures.put(candidate, describe(e));
                 }
             }
             connection.commit();
@@ -164,7 +173,7 @@ public class ImportService {
             } catch (SQLException ignored) {
             }
         }
-        return new ImportResult(imported, taggedExisting, skipped, failed, false);
+        return new ImportResult(imported, taggedExisting, skipped, failures, false);
     }
 
     /** Re-imports a recycled image in place: moves its file back out of recycle/ and clears deleted_at. */
@@ -189,6 +198,14 @@ public class ImportService {
             } catch (IOException ignored) {
             }
         }
+    }
+
+    /** java.nio's messages are often just a path; say what went wrong instead. */
+    private static String describe(IOException e) {
+        if (e instanceof java.nio.file.NoSuchFileException) return "the file was moved or deleted";
+        if (e instanceof java.nio.file.AccessDeniedException) return "permission denied";
+        if (e instanceof java.nio.file.FileSystemException fse && fse.getReason() != null) return fse.getReason();
+        return e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
     }
 
     private static Set<Integer> allTags(Set<Integer> batchTagIds, ImportCandidate candidate) {

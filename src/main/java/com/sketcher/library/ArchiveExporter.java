@@ -5,6 +5,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.sketcher.db.dao.TagDao;
 import com.sketcher.filter.Filter;
+import com.sketcher.filter.FilterCodec;
 import com.sketcher.model.ImageRecord;
 import com.sketcher.model.OrderMode;
 import com.sketcher.model.Playlist;
@@ -176,49 +177,7 @@ public class ArchiveExporter {
 
     /** Same shape as FilterCodec, but a TagPredicate carries the tag's full path instead of its local numeric id. */
     private static JsonObject encodePortableFilter(Filter filter, TagDao tagDao) {
-        JsonObject o = new JsonObject();
-        switch (filter) {
-            case Filter.All ignored -> o.addProperty("type", "all");
-            case Filter.FavoritePredicate ignored -> o.addProperty("type", "favorite");
-            case Filter.UntaggedPredicate ignored -> o.addProperty("type", "untagged");
-            case Filter.NameContainsPredicate p -> {
-                o.addProperty("type", "nameContains");
-                o.addProperty("text", p.text());
-            }
-            case Filter.ImportedBetweenPredicate p -> {
-                o.addProperty("type", "importedBetween");
-                o.addProperty("from", p.fromMillis());
-                o.addProperty("to", p.toMillis());
-            }
-            case Filter.NotSeenSincePredicate p -> {
-                o.addProperty("type", "notSeenSince");
-                o.addProperty("durationMillis", p.durationMillis());
-            }
-            case Filter.TagPredicate p -> {
-                o.addProperty("type", "tag");
-                o.addProperty("tagPath", tagDao.fullPath(p.tagId()));
-                o.addProperty("includeDescendants", p.includeDescendants());
-            }
-            case Filter.Not n -> {
-                o.addProperty("type", "not");
-                o.add("child", encodePortableFilter(n.child(), tagDao));
-            }
-            case Filter.And a -> {
-                o.addProperty("type", "and");
-                o.add("children", encodePortableFilterArray(a.children(), tagDao));
-            }
-            case Filter.Or orFilter -> {
-                o.addProperty("type", "or");
-                o.add("children", encodePortableFilterArray(orFilter.children(), tagDao));
-            }
-        }
-        return o;
-    }
-
-    private static JsonArray encodePortableFilterArray(List<Filter> filters, TagDao tagDao) {
-        JsonArray array = new JsonArray();
-        for (Filter f : filters) array.add(encodePortableFilter(f, tagDao));
-        return array;
+        return FilterCodec.toJson(filter, (p, o) -> o.addProperty("tagPath", tagDao.fullPath(p.tagId())));
     }
 
     private static void writeBytesEntry(ZipOutputStream zip, String name, byte[] content) throws IOException {

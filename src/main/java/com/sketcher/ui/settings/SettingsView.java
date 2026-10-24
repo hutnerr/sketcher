@@ -2,6 +2,7 @@ package com.sketcher.ui.settings;
 
 import com.sketcher.config.AppConfig;
 import com.sketcher.config.ConfigStore;
+import com.sketcher.filter.Filter;
 import com.sketcher.library.ArchiveExporter;
 import com.sketcher.library.ArchiveImporter;
 import com.sketcher.library.LibraryService;
@@ -13,6 +14,8 @@ import com.sketcher.ui.components.Card;
 import com.sketcher.ui.components.FormRow;
 import com.sketcher.ui.components.Page;
 import com.sketcher.ui.components.SegmentedControl;
+import javafx.application.Platform;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
@@ -30,12 +33,14 @@ public class SettingsView extends Page {
     public SettingsView(LibraryService library, ConfigStore configStore, AppConfig config, Stage stage) {
         super("Settings");
         getStyleClass().add("settings-view");
-        setSubtitle("Appearance, library location, and backups.");
+        setSubtitle("Appearance, importing, library location, backups, and deleting the library.");
 
         setScrollingBody(
                 buildThemeSection(configStore, config, stage),
+                buildImportSection(configStore, config),
                 buildLibrarySection(library, configStore, config, stage),
-                buildArchiveSection(library, stage));
+                buildArchiveSection(library, stage),
+                buildDangerSection(library, configStore, config));
     }
 
     private Card buildThemeSection(ConfigStore configStore, AppConfig config, Stage stage) {
@@ -50,6 +55,18 @@ public class SettingsView extends Page {
         });
 
         return new Card("Appearance").add(new FormRow("Theme", themeChoice));
+    }
+
+    private Card buildImportSection(ConfigStore configStore, AppConfig config) {
+        CheckBox skipDuplicates = new CheckBox("Skip duplicates when staging");
+        skipDuplicates.setSelected(config.skipDuplicatesOnImport);
+        skipDuplicates.setOnAction(e -> {
+            config.skipDuplicatesOnImport = skipDuplicates.isSelected();
+            configStore.save(config);
+        });
+
+        return new Card("Import").add(new FormRow("Duplicates", skipDuplicates)
+                .hint("Files already in the library, or repeated within one batch, are left out of the staging list."));
     }
 
     private Card buildLibrarySection(LibraryService library, ConfigStore configStore, AppConfig config, Stage stage) {
@@ -70,6 +87,56 @@ public class SettingsView extends Page {
                 new FormRow("Archive",
                         AppButton.secondary("Export library…", () -> exportLibrary(library, stage)),
                         AppButton.secondary("Import archive…", () -> importArchive(library, stage))));
+    }
+
+    private Card buildDangerSection(LibraryService library, ConfigStore configStore, AppConfig config) {
+        return new Card("Delete library",
+                "Permanently deletes every image, tag, playlist, preset, and practice history in this library, "
+                        + "and resets all settings. Sketcher then closes; open it again to choose or create a library.")
+                .add(new FormRow("", AppButton.danger("Delete library…", () -> deleteLibrary(library, configStore, config))));
+    }
+
+    /**
+     * Two steps on purpose: a summary of what goes, then typing DELETE. The
+     * deletion runs as the last job on the DB thread, so nothing still queued
+     * there can touch the database after it's closed and removed.
+     */
+    private void deleteLibrary(LibraryService library, ConfigStore configStore, AppConfig config) {
+        AsyncTask.runDb(() -> library.images().count(new Filter.All()), imageCount -> {
+            Path root = library.root();
+            boolean confirmed = Dialogs.confirm("Delete library",
+                    "This permanently deletes " + imageCount + (imageCount == 1 ? " image" : " images")
+                            + " and everything else in the library at\n" + root
+                            + "\n\nIt does not go to the recycle bin and cannot be undone. Exports in its exports folder are kept."
+                            + "\n\nAll settings are reset too.");
+            if (!confirmed) return;
+            boolean typed = Dialogs.prompt("Delete library", "Type DELETE to confirm", "")
+                    .map("DELETE"::equals).orElse(false);
+            if (!typed) return;
+
+            AsyncTask.runDb(() -> {
+                library.close();
+                try {
+                    LibraryService.deleteLibraryFiles(library.ref());
+                } catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
+                return null;
+            }, ignored -> {
+                config.resetToDefaults();
+                configStore.save(config);
+                Dialogs.info("Library deleted", "Sketcher will close now. Open it again to choose or create a library.");
+                Platform.exit();
+            }, err -> {
+                // The library is already closed, so carrying on would hit a dead connection; reset and exit anyway.
+                config.resetToDefaults();
+                configStore.save(config);
+                Dialogs.error("Could not delete everything",
+                        "Some files could not be removed: " + err.getMessage()
+                                + "\n\nSettings were reset. Sketcher will close; you can delete the folder by hand:\n" + root);
+                Platform.exit();
+            });
+        }, err -> Dialogs.error("Could not read library", err.getMessage()));
     }
 
     private void exportLibrary(LibraryService library, Stage stage) {

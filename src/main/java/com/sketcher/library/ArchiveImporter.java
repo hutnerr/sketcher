@@ -7,6 +7,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.sketcher.db.dao.TagDao;
 import com.sketcher.filter.Filter;
+import com.sketcher.filter.FilterCodec;
 import com.sketcher.model.ImageRecord;
 import com.sketcher.model.OrderMode;
 import com.sketcher.model.Playlist;
@@ -222,32 +223,8 @@ public class ArchiveImporter {
     /** Same shape as FilterCodec, but a TagPredicate's path is resolved/created in the destination library. */
     private static Filter decodePortableFilter(JsonObject o, TagDao tagDao, Map<String, Integer> tagPathToId,
                                                  int[] tagsCreated) {
-        String type = o.get("type").getAsString();
-        return switch (type) {
-            case "all" -> new Filter.All();
-            case "favorite" -> new Filter.FavoritePredicate();
-            case "untagged" -> new Filter.UntaggedPredicate();
-            case "nameContains" -> new Filter.NameContainsPredicate(o.get("text").getAsString());
-            case "importedBetween" ->
-                    new Filter.ImportedBetweenPredicate(o.get("from").getAsLong(), o.get("to").getAsLong());
-            case "notSeenSince" -> new Filter.NotSeenSincePredicate(o.get("durationMillis").getAsLong());
-            case "tag" -> new Filter.TagPredicate(
-                    resolveOrCreateTagPath(tagDao, o.get("tagPath").getAsString(), tagPathToId, tagsCreated),
-                    o.get("includeDescendants").getAsBoolean());
-            case "not" -> new Filter.Not(decodePortableFilter(o.getAsJsonObject("child"), tagDao, tagPathToId, tagsCreated));
-            case "and" -> new Filter.And(decodePortableFilterArray(o.getAsJsonArray("children"), tagDao, tagPathToId, tagsCreated));
-            case "or" -> new Filter.Or(decodePortableFilterArray(o.getAsJsonArray("children"), tagDao, tagPathToId, tagsCreated));
-            default -> throw new IllegalArgumentException("Unknown portable filter type: " + type);
-        };
-    }
-
-    private static List<Filter> decodePortableFilterArray(JsonArray array, TagDao tagDao, Map<String, Integer> tagPathToId,
-                                                            int[] tagsCreated) {
-        List<Filter> result = new ArrayList<>();
-        for (JsonElement el : array) {
-            result.add(decodePortableFilter(el.getAsJsonObject(), tagDao, tagPathToId, tagsCreated));
-        }
-        return result;
+        return FilterCodec.fromJson(o, tag ->
+                resolveOrCreateTagPath(tagDao, tag.get("tagPath").getAsString(), tagPathToId, tagsCreated));
     }
 
     /** Walks a " / "-joined tag path without creating anything; null if any segment is missing. */

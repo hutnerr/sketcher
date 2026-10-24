@@ -68,7 +68,7 @@ public class SketcherApp extends Application {
 
         shell.registerView("home", "Home", () -> homeView);
         shell.registerView("gallery", "Gallery", () -> new GalleryView(library));
-        shell.registerView("import", "Import", () -> new ImportView(library));
+        shell.registerView("import", "Import", () -> new ImportView(library, configStore, config));
         shell.registerView("tags", "Tags", () -> new TagManagerView(library));
         shell.registerView("playlists", "Playlists", () -> new PlaylistView(library, startPracticeWithPlaylist));
         shell.registerView("practice", "Practice", () -> practiceContainerView);

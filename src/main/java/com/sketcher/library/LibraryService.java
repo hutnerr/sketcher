@@ -10,6 +10,7 @@ import com.sketcher.db.dao.TagDao;
 import com.sketcher.db.dao.ViewDao;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 
 /**
@@ -90,5 +91,31 @@ public class LibraryService implements AutoCloseable {
     @Override
     public void close() {
         database.close();
+    }
+
+    /**
+     * Permanently removes everything Sketcher keeps in a library folder: the
+     * database (and its SQLite side files), originals, thumbnails, and the
+     * recycle bin. The folder itself and exports/ are left — the folder was
+     * the user's choice and may hold other things, and exports/ is where
+     * library backups land. Close the library first.
+     */
+    public static void deleteLibraryFiles(LibraryRef ref) throws IOException {
+        for (String suffix : new String[]{"", "-wal", "-shm", "-journal"}) {
+            Files.deleteIfExists(ref.dbFile().resolveSibling(ref.dbFile().getFileName() + suffix));
+        }
+        for (Path dir : new Path[]{ref.imagesDir(), ref.thumbsDir(), ref.recycleDir()}) {
+            deleteRecursively(dir);
+        }
+    }
+
+    private static void deleteRecursively(Path dir) throws IOException {
+        if (!Files.exists(dir)) return;
+        try (var walk = Files.walk(dir)) {
+            // Deepest first, so each directory is empty by the time it's deleted.
+            for (Path p : walk.sorted(java.util.Comparator.reverseOrder()).toList()) {
+                Files.delete(p);
+            }
+        }
     }
 }

@@ -4,7 +4,9 @@ import com.sketcher.model.ImportCandidate;
 import com.sketcher.model.ImportStatus;
 import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.beans.property.ReadOnlyStringWrapper;
+import javafx.beans.Observable;
 import javafx.collections.FXCollections;
+import javafx.collections.ListChangeListener;
 import javafx.collections.ObservableList;
 import com.sketcher.ui.components.AppButton;
 import javafx.scene.control.CheckBox;
@@ -14,10 +16,28 @@ import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
+import javafx.scene.input.MouseEvent;
 
-/** The import review table: thumbnail, filename, dimensions, size, status, remove (PLAN.md 4.1). */
+import java.util.List;
+
+/**
+ * The import review table: thumbnail, filename, dimensions, size, status,
+ * remove (PLAN.md 4.1). The Import column's header checkbox checks or
+ * unchecks every row that can be imported, Shift-clicking a checkbox sets
+ * the whole range since the last one clicked, and Space toggles the
+ * checkboxes of all selected rows — together with the Import page's selection bar, that
+ * makes it practical to stage a large folder and import it a slice at a time.
+ */
 public class StagingTable extends TableView<ImportCandidate> {
-    private final ObservableList<ImportCandidate> candidates = FXCollections.observableArrayList();
+    /** The extractor makes a checkbox or status change fire a list update, so the header and listeners stay in sync. */
+    private final ObservableList<ImportCandidate> candidates = FXCollections.observableArrayList(
+            c -> new Observable[]{c.includedProperty(), c.statusProperty(), c.reasonProperty()});
+    private final CheckBox headerCheckBox = new CheckBox();
+    private boolean syncingHeader;
+    /** Row of the last checkbox clicked; a Shift-click extends from here, like a file manager's range select. */
+    private int checkAnchor = -1;
 
     public StagingTable() {
         setItems(candidates);
@@ -25,21 +45,45 @@ public class StagingTable extends TableView<ImportCandidate> {
         setColumnResizePolicy(CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
         getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
 
-        TableColumn<ImportCandidate, ImportCandidate> includeCol = new TableColumn<>("Import");
+        TableColumn<ImportCandidate, ImportCandidate> includeCol = new TableColumn<>("");
+        headerCheckBox.setOnAction(e -> {
+            if (syncingHeader) return;
+            setIncluded(candidates, !allIncludableChecked());
+        });
+        headerCheckBox.setTooltip(new javafx.scene.control.Tooltip("Check or uncheck every file"));
+        includeCol.setGraphic(headerCheckBox);
         includeCol.setCellValueFactory(cd -> new ReadOnlyObjectWrapper<>(cd.getValue()));
         includeCol.setCellFactory(col -> new TableCell<>() {
             private final CheckBox checkBox = new CheckBox();
 
+            {
+                // MOUSE_CLICKED arrives after the checkbox has toggled, so isSelected() is the state to spread.
+                checkBox.addEventHandler(MouseEvent.MOUSE_CLICKED, e -> {
+                    int index = getIndex();
+                    if (e.isShiftDown() && checkAnchor >= 0 && checkAnchor < getItems().size() && checkAnchor != index) {
+                        int from = Math.min(checkAnchor, index), to = Math.max(checkAnchor, index);
+                        setIncluded(List.copyOf(getItems().subList(from, to + 1)), checkBox.isSelected());
+                    }
+                    checkAnchor = index;
+                });
+            }
+            /** Cells are recycled across rows — unbind from the previous row, or one checkbox ends up driving many. */
+            private ImportCandidate bound;
+
             @Override
             protected void updateItem(ImportCandidate item, boolean empty) {
                 super.updateItem(item, empty);
+                if (bound != null) {
+                    checkBox.selectedProperty().unbindBidirectional(bound.includedProperty());
+                    bound = null;
+                }
                 if (empty || item == null) {
                     setGraphic(null);
                     return;
                 }
                 checkBox.setDisable(!item.isIncludable());
-                checkBox.selectedProperty().unbindBidirectional(item.includedProperty());
                 checkBox.selectedProperty().bindBidirectional(item.includedProperty());
+                bound = item;
                 setGraphic(checkBox);
             }
         });
@@ -110,6 +154,39 @@ public class StagingTable extends TableView<ImportCandidate> {
         removeCol.setSortable(false);
 
         getColumns().addAll(java.util.List.of(includeCol, thumbCol, nameCol, dimCol, sizeCol, statusCol, removeCol));
+
+        candidates.addListener((ListChangeListener<ImportCandidate>) c -> syncHeader());
+        syncHeader();
+
+        addEventFilter(KeyEvent.KEY_PRESSED, e -> {
+            if (e.getCode() != KeyCode.SPACE || getSelectionModel().isEmpty()) return;
+            List<ImportCandidate> selected = List.copyOf(getSelectionModel().getSelectedItems());
+            boolean anyUnchecked = selected.stream().anyMatch(c -> c.isIncludable() && !c.isIncluded());
+            setIncluded(selected, anyUnchecked);
+            e.consume();
+        });
+    }
+
+    /** Checks or unchecks these rows; rows that can't be imported (unreadable, duplicate) are left alone. */
+    public void setIncluded(List<ImportCandidate> rows, boolean included) {
+        for (ImportCandidate c : rows) {
+            if (c.isIncludable()) c.includedProperty().set(included);
+        }
+    }
+
+    private boolean allIncludableChecked() {
+        return candidates.stream().filter(ImportCandidate::isIncludable).allMatch(ImportCandidate::isIncluded);
+    }
+
+    /** Header shows checked when every importable row is, unchecked when none is, and a dash when it's mixed. */
+    private void syncHeader() {
+        long includable = candidates.stream().filter(ImportCandidate::isIncludable).count();
+        long checked = candidates.stream().filter(c -> c.isIncludable() && c.isIncluded()).count();
+        syncingHeader = true;
+        headerCheckBox.setDisable(includable == 0);
+        headerCheckBox.setIndeterminate(checked > 0 && checked < includable);
+        headerCheckBox.setSelected(includable > 0 && checked == includable);
+        syncingHeader = false;
     }
 
     public ObservableList<ImportCandidate> candidates() {

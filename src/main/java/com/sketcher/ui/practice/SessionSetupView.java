@@ -46,6 +46,9 @@ public class SessionSetupView extends Page {
     private final Label queueHint = new Label(
             "Starting/saving now uses this queue, not the form above — add the current segment to it first if it should be included too.");
     private List<Playlist> playlistsCache = List.of();
+    private final Label matchCountLabel = new Label();
+    /** Bumped per count request, so a slow earlier count can't overwrite a newer one. */
+    private int matchCountRequest = 0;
 
     private final SegmentedControl<SourceKind> sourceChoice = new SegmentedControl<SourceKind>()
             .option(SourceKind.FILTER, "Filter")
@@ -111,10 +114,12 @@ public class SessionSetupView extends Page {
         setSubtitle("Choose what to draw and how long you get with each image.");
 
         filterBar = new FilterBar(library, false);
+        filterBar.setOnChange(f -> updateMatchCount());
+        matchCountLabel.getStyleClass().add("hint-label");
 
         sourceChoice.setValue(preselectPlaylistId == null ? SourceKind.FILTER : SourceKind.PLAYLIST);
         sourceChoice.onChange(v -> updateSourceVisibility());
-        filterRow = new FormRow("Images matching").below(filterBar);
+        filterRow = new FormRow("Images matching").below(filterBar).below(matchCountLabel);
         playlistChoice.setMinWidth(240);
         playlistRow = new FormRow("Playlist", playlistChoice,
                 AppButton.ghost("Refresh", this::loadPlaylists).small());
@@ -165,7 +170,7 @@ public class SessionSetupView extends Page {
                 .headerActions(AppButton.secondary("+ Add this segment", this::addSegmentToQueue).small());
         queueCard.add(queueHint, queueListBox);
 
-        setScrollingBody(
+        setScrollingBody(false,
                 new Card("Source").add(new FormRow("Draw from", sourceChoice), filterRow, playlistRow),
                 new Card("Images").add(new FormRow("Image count", countChoice), new FormRow("Order", orderChoice)),
                 new Card("Timing").add(new FormRow("Mode", modeChoice), intervalRow, tickRow, rampRow, memoryRow),
@@ -178,6 +183,22 @@ public class SessionSetupView extends Page {
         updateSourceVisibility();
         updateTimingAvailability();
         loadPlaylists();
+        updateMatchCount();
+    }
+
+    private void updateMatchCount() {
+        int request = ++matchCountRequest;
+        Filter filter = filterBar.buildFilter();
+        AsyncTask.runDb(
+                () -> library.images().count(filter),
+                count -> {
+                    if (request != matchCountRequest) return;
+                    matchCountLabel.setText(count == 0 ? "No images match yet"
+                            : count + (count == 1 ? " image matches" : " images match"));
+                },
+                err -> {
+                    if (request == matchCountRequest) matchCountLabel.setText("");
+                });
     }
 
     private static Label unit(String text) {

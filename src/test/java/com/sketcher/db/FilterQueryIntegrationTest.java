@@ -98,6 +98,32 @@ class FilterQueryIntegrationTest {
         assertTrue(!ids(results).contains(img1));
     }
 
+    @Test
+    void conditionPredicatesCompileToWorkingSql() {
+        long now = System.currentTimeMillis();
+        long day = 24L * 60 * 60 * 1000;
+        int portrait = imageDao.insert("p1", "jpeg", "Pose_50%_ref.JPEG", 800, 1200, 3 * 1024 * 1024, now, null);
+        int landscape = imageDao.insert("l1", "png", "landscape.png", 1200, 800, 500 * 1024, now - 40 * day, null);
+        int nearSquare = imageDao.insert("s1", "bmp", "scan.bmp", 1000, 990, 1000, now - 40 * day, null);
+
+        assertEquals(Set.of(portrait), ids(query(new Filter.OrientationPredicate(Filter.Orientation.PORTRAIT))));
+        assertEquals(Set.of(landscape), ids(query(new Filter.OrientationPredicate(Filter.Orientation.LANDSCAPE))));
+        assertTrue(ids(query(new Filter.OrientationPredicate(Filter.Orientation.SQUARE))).contains(nearSquare));
+        assertEquals(Set.of(portrait), ids(query(new Filter.FormatPredicate("jpg"))));
+        imageDao.setSeenStats(landscape, now, 5);
+        assertEquals(Set.of(landscape), ids(query(new Filter.SeenCountPredicate(Filter.Comparison.GE, 3))));
+        assertEquals(Set.of(landscape, nearSquare), ids(query(new Filter.Not(
+                new Filter.ImportedWithinPredicate(30 * day)))));
+        // % and _ are literal in a filename search, and matching ignores case.
+        assertEquals(Set.of(portrait), ids(query(new Filter.NamePredicate(Filter.TextMatch.CONTAINS, "50%_"))));
+        assertEquals(Set.of(portrait), ids(query(new Filter.NamePredicate(Filter.TextMatch.STARTS_WITH, "pose"))));
+        assertEquals(Set.of(), ids(query(new Filter.NamePredicate(Filter.TextMatch.CONTAINS, "50%x"))));
+    }
+
+    private List<ImageRecord> query(Filter filter) {
+        return imageDao.query(filter, OrderMode.SEQUENTIAL, null);
+    }
+
     private static Set<Integer> ids(List<ImageRecord> records) {
         return records.stream().map(ImageRecord::id).collect(Collectors.toSet());
     }

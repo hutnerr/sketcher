@@ -30,7 +30,7 @@ class FilterCodecTest {
         Filter original = new Filter.Or(List.of(
                 new Filter.FavoritePredicate(),
                 new Filter.UntaggedPredicate(),
-                new Filter.NameContainsPredicate("ref")
+                new Filter.NamePredicate(Filter.TextMatch.CONTAINS, "ref")
         ));
         Filter decoded = FilterCodec.decode(FilterCodec.encode(original));
         assertEquals(original, decoded);

@@ -166,4 +166,47 @@ class ImportServiceTest {
             assertTrue(library.images().findByHash(candidate.getHash()).isEmpty());
         }
     }
+
+    @Test
+    void failuresAreReportedPerCandidateAndDoNotBlockTheRest(@TempDir Path tempDir) throws IOException {
+        try (LibraryService library = new LibraryService(tempDir.resolve("lib").toString())) {
+            ImportCandidate ok = stageAndProbe(library, pngFile(tempDir, "ok.png", 0x00FF00));
+            Path vanishing = pngFile(tempDir, "gone.png", 0x0000FF);
+            ImportCandidate gone = stageAndProbe(library, vanishing);
+            Files.delete(vanishing); // moved or deleted between staging and importing
+
+            var result = library.importService().importBatch(List.of(ok, gone), Set.of(), false,
+                    library.images(), null, i -> { });
+
+            assertEquals(1, result.imported());
+            assertEquals(1, result.failed());
+            assertTrue(result.failures().containsKey(gone));
+            assertTrue(library.images().findByHash(ok.getHash()).isPresent());
+        }
+    }
+
+    @Test
+    void deleteLibraryFilesRemovesOnlySketchersOwnData(@TempDir Path tempDir) throws IOException {
+        Path root = tempDir.resolve("lib");
+        LibraryService library = new LibraryService(root.toString());
+        ImportCandidate candidate = stageAndProbe(library, pngFile(tempDir, "a.png", 0x123456));
+        library.importService().importBatch(List.of(candidate), Set.of(), false, library.images(), null, i -> { });
+        Path backup = Files.writeString(library.ref().exportsDir().resolve("backup.zip"), "zip");
+        Path unrelated = Files.writeString(root.resolve("notes.txt"), "mine");
+        library.close();
+
+        LibraryService.deleteLibraryFiles(library.ref());
+
+        assertTrue(Files.notExists(library.ref().dbFile()));
+        assertTrue(Files.notExists(library.ref().imagesDir()));
+        assertTrue(Files.notExists(library.ref().thumbsDir()));
+        assertTrue(Files.notExists(library.ref().recycleDir()));
+        assertTrue(Files.isRegularFile(backup), "exports are backups and must survive");
+        assertTrue(Files.isRegularFile(unrelated), "files Sketcher didn't create must survive");
+
+        // The folder works as a fresh, empty library afterwards.
+        try (LibraryService fresh = new LibraryService(root.toString())) {
+            assertEquals(0, fresh.images().count(new com.sketcher.filter.Filter.All()));
+        }
+    }
 }

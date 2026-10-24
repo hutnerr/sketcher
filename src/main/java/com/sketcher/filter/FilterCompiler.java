@@ -29,9 +29,48 @@ public class FilterCompiler {
             case Filter.UntaggedPredicate ignored ->
                     "NOT EXISTS (SELECT 1 FROM image_tag it WHERE it.image_id = i.id)";
 
-            case Filter.NameContainsPredicate p -> {
-                params.add("%" + p.text() + "%");
-                yield "i.original_name LIKE ?";
+            case Filter.NamePredicate p -> {
+                String escaped = escapeLike(p.text());
+                params.add(switch (p.match()) {
+                    case CONTAINS -> "%" + escaped + "%";
+                    case STARTS_WITH -> escaped + "%";
+                    case ENDS_WITH -> "%" + escaped;
+                    case EQUALS -> escaped;
+                });
+                yield "i.original_name LIKE ? ESCAPE '\\'";
+            }
+
+            case Filter.ImportedWithinPredicate p -> {
+                params.add(System.currentTimeMillis() - p.durationMillis());
+                yield "i.imported_at >= ?";
+            }
+
+            case Filter.SeenCountPredicate p -> {
+                String op = switch (p.comparison()) {
+                    case LT -> "<";
+                    case LE -> "<=";
+                    case EQ -> "=";
+                    case GE -> ">=";
+                    case GT -> ">";
+                };
+                params.add(p.count());
+                yield "i.seen_count " + op + " ?";
+            }
+
+            case Filter.FormatPredicate p -> {
+                String format = p.format().toLowerCase(java.util.Locale.ROOT);
+                if (format.equals("jpg") || format.equals("jpeg")) yield "LOWER(i.ext) IN ('jpg', 'jpeg')";
+                params.add(format);
+                yield "LOWER(i.ext) = ?";
+            }
+
+            case Filter.OrientationPredicate p -> {
+                String square = "ABS(i.width - i.height) * 50 <= MAX(i.width, i.height)";
+                yield switch (p.orientation()) {
+                    case SQUARE -> square;
+                    case PORTRAIT -> "i.height > i.width AND NOT (" + square + ")";
+                    case LANDSCAPE -> "i.width > i.height AND NOT (" + square + ")";
+                };
             }
 
             case Filter.ImportedBetweenPredicate p -> {
@@ -69,6 +108,11 @@ public class FilterCompiler {
 
             case Filter.Or o -> combine(o.children(), " OR ", params);
         };
+    }
+
+    /** LIKE treats % and _ as wildcards; a filename search should match them literally. */
+    private static String escapeLike(String text) {
+        return text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
     }
 
     private static String combine(List<Filter> children, String joiner, List<Object> params) {

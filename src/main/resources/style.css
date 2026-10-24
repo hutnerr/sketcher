@@ -16,6 +16,8 @@
     -bg-surface:         #ffffff;
     -bg-surface-alt:      #f0f0ed;
     -bg-surface-hover:    #e9e9e6;
+    /* The chosen option in a segmented control; must read as raised above its -bg-surface-alt track. */
+    -segment-selected-bg: #ffffff;
     -border-subtle:       #e6e6e2;
     -border-strong:       #d4d4cf;
     -text-primary:        #1b1b1a;
@@ -39,8 +41,6 @@
     -nav-selected-bg:     #ebebe7;
     -image-area-bg:       #1d1d1d;
     -overlay-bg:          rgba(18,18,18,0.72);
-    -shadow-soft:         rgba(20,20,18,0.06);
-    -shadow-strong:       rgba(20,20,18,0.13);
 
     -fx-font-family: "Inter", "Segoe UI", "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
     -fx-font-size: 16px;
@@ -113,7 +113,6 @@
     -fx-border-color: -border-subtle;
     -fx-border-radius: 14;
     -fx-border-width: 1;
-    -fx-effect: dropshadow(gaussian, -shadow-soft, 12, 0, 0, 2);
 }
 
 .card-title {
@@ -132,7 +131,6 @@
 
 .card-interactive:hover {
     -fx-border-color: -border-strong;
-    -fx-effect: dropshadow(gaussian, -shadow-strong, 20, 0, 0, 5);
 }
 
 .card-accent {
@@ -227,7 +225,6 @@
     -fx-font-size: 15.5px;
     -fx-font-weight: 500;
     -fx-cursor: hand;
-    -fx-effect: dropshadow(gaussian, -shadow-soft, 3, 0, 0, 1);
 }
 
 .button:hover, .toggle-button:hover {
@@ -358,11 +355,10 @@
 }
 
 .segmented .segment:selected {
-    -fx-background-color: -bg-surface;
+    -fx-background-color: -segment-selected-bg;
     -fx-border-color: -border-subtle;
     -fx-text-fill: -text-primary;
     -fx-font-weight: 600;
-    -fx-effect: dropshadow(gaussian, -shadow-strong, 4, 0, 0, 1);
 }
 
 /* ---------- Toolbar ---------- */
@@ -454,7 +450,6 @@
     -fx-background-radius: 10;
     -fx-border-radius: 10;
     -fx-padding: 5;
-    -fx-effect: dropshadow(gaussian, -shadow-strong, 18, 0, 0, 6);
 }
 
 .combo-box-popup .list-view .list-cell {
@@ -687,6 +682,11 @@
     -fx-cell-size: 48px;
 }
 
+/* The filler rows a table draws below its last item shouldn't look like rows. */
+.table-row-cell:empty {
+    -fx-border-color: transparent;
+}
+
 .table-row-cell:filled:hover {
     -fx-background-color: -bg-surface-hover;
 }
@@ -836,7 +836,6 @@
 
 .image-tile:hover {
     -fx-border-color: -border-strong;
-    -fx-effect: dropshadow(gaussian, -shadow-strong, 14, 0, 0, 3);
 }
 
 .image-tile.selected {
@@ -941,6 +940,33 @@
 
 .filter-row-tag {
     -fx-font-weight: 600;
+}
+
+/* Condition builder: each row is a tinted strip; a nested and/or group gets a bracket down its left edge. */
+.condition-group {
+    -fx-border-color: transparent transparent transparent -accent-soft-border;
+    -fx-border-width: 0 0 0 3;
+    -fx-padding: 2 0 2 12;
+}
+
+.condition-row {
+    -fx-background-color: -bg-surface-alt;
+    -fx-background-radius: 10;
+    -fx-padding: 6 6 6 14;
+}
+
+.condition-lead {
+    -fx-padding: 0 8 0 4;
+    -fx-text-fill: -text-secondary;
+    -fx-font-weight: 600;
+    /* Fixed so "Where", "and", and "or" rows line their dropdowns up on one edge. */
+    -fx-min-width: 64;
+    -fx-pref-width: 64;
+}
+
+/* A group's lead sits level with its first row rather than the bracket's middle. */
+.condition-lead-group {
+    -fx-padding: 14 8 0 4;
 }
 
 .filter-panel {

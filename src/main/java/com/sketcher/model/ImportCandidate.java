@@ -64,6 +64,14 @@ public class ImportCandidate {
         included.set(value == ImportStatus.NEW);
     }
 
+    /**
+     * Records why the last import of this row failed. Status and the checkbox
+     * are left alone, so importing again retries it exactly as before.
+     */
+    public void markFailed(String reasonText) {
+        reason.set("Import failed: " + (reasonText == null ? "unknown error" : reasonText));
+    }
+
     /** Applies a completed probe (PLAN.md 4.1 staging); call only on the FX thread. */
     public void applyProbe(com.sketcher.library.ImportService.ProbeOutcome outcome) {
         this.hash = outcome.hash();
